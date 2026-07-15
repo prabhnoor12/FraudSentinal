@@ -1,0 +1,14 @@
+fastapi
+redis
+alembic
+sqlalchemy
+pydantic
+uvicorn
+fastapi-limiter
+passlib[bcrypt]
+cryptography
+Authlib
+pytest
+httpx
+asyncpg
+ruff
