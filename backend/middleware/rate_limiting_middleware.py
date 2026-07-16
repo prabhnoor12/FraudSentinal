@@ -17,6 +17,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     It tracks requests by client identifier (IP address by default), enforces a
     sliding-window limit, and returns standard rate-limit headers plus a 429
     response when the threshold is exceeded.
+
+    The X-RateLimit-Reset header is computed based on the oldest request in the
+    current window so the client knows when the next slot becomes available.
     """
 
     def __init__(
@@ -56,11 +59,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
             if self._is_blocked(client_key, now):
                 retry_after = max(1, int(self._blocked_until[client_key] - now))
+                reset_timestamp = int(time.time() + retry_after)
                 headers = {
                     "Retry-After": str(retry_after),
                     "X-RateLimit-Limit": str(self.calls),
                     "X-RateLimit-Remaining": "0",
-                    "X-RateLimit-Reset": str(int(time.time() + retry_after)),
+                    "X-RateLimit-Reset": str(reset_timestamp),
                 }
                 return JSONResponse(
                     status_code=429,
@@ -75,11 +79,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             if len(history) > self.calls:
                 self._blocked_until[client_key] = now + self.block_duration_seconds
                 retry_after = self.block_duration_seconds
+                reset_timestamp = int(time.time() + retry_after)
                 headers = {
                     "Retry-After": str(retry_after),
                     "X-RateLimit-Limit": str(self.calls),
                     "X-RateLimit-Remaining": "0",
-                    "X-RateLimit-Reset": str(int(time.time() + retry_after)),
+                    "X-RateLimit-Reset": str(reset_timestamp),
                 }
                 return JSONResponse(
                     status_code=429,
@@ -87,11 +92,21 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     headers=headers,
                 )
 
+            reset_timestamp = self._compute_reset_timestamp(history, now)
+
         response = await call_next(request)
         response.headers["X-RateLimit-Limit"] = str(self.calls)
         response.headers["X-RateLimit-Remaining"] = str(remaining)
-        response.headers["X-RateLimit-Reset"] = str(int(time.time() + self.window_seconds))
+        response.headers["X-RateLimit-Reset"] = str(reset_timestamp)
         return response
+
+    def _compute_reset_timestamp(self, history: Deque[float], now: float) -> int:
+        if not history:
+            return int(time.time() + self.window_seconds)
+
+        oldest = history[0]
+        seconds_left = max(0.0, self.window_seconds - (now - oldest))
+        return int(time.time() + seconds_left)
 
     def _should_skip(self, request: Request) -> bool:
         path = request.url.path
