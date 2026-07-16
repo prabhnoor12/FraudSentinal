@@ -1,11 +1,11 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 
 class LoginRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 
@@ -20,7 +20,7 @@ class RefreshTokenRequest(BaseModel):
 
 
 class PasswordResetRequest(BaseModel):
-    email: str
+    email: EmailStr
 
 
 class PasswordResetConfirm(BaseModel):
@@ -30,7 +30,7 @@ class PasswordResetConfirm(BaseModel):
 
 class AuthUserOut(BaseModel):
     id: int
-    email: str
+    email: EmailStr
     full_name: Optional[str] = None
     created_at: datetime
 
