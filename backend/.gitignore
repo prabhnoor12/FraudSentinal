@@ -1,3 +1,6 @@
 venv
 .env
-_pycache_
+__pycache__/
+*.py[cod]
+*$py.class
+fraud_detection.db

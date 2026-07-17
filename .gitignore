@@ -1,1 +1,6 @@
 .env
+__pycache__/
+*.py[cod]
+*$py.class
+fraud_detection.db
+*.db
