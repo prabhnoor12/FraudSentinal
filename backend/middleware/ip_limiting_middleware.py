@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Callable, Optional, Set, Tuple
 
 from fastapi import Request
-from backend.middleware.rate_limiting_middleware import RateLimitMiddleware
+from middleware.rate_limiting_middleware import RateLimitMiddleware
 from starlette.types import ASGIApp
 
 

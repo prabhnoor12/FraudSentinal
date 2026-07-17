@@ -12,7 +12,7 @@ from schemas.usage_schemas import (
 from services import auth_service, usage_service
 
 
-router = APIRouter(prefix="/user-tracking", tags=["user-tracking"])
+router = APIRouter(prefix="/usage", tags=["usage"])
 
 
 def require_auth(

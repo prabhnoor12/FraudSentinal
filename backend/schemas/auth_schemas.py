@@ -4,6 +4,12 @@ from typing import Optional
 from pydantic import BaseModel, EmailStr
 
 
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: Optional[str] = None
+
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
@@ -32,6 +38,7 @@ class AuthUserOut(BaseModel):
     id: int
     email: EmailStr
     full_name: Optional[str] = None
+    is_active: bool
     created_at: datetime
 
     class Config:
