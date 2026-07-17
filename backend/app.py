@@ -6,10 +6,13 @@ from middleware.ip_limiting_middleware import IPLimitMiddleware
 from middleware.logging_middleware import LoggingMiddleware
 from middleware.rate_limiting_middleware import RateLimitMiddleware
 from routes.auth_routes import router as auth_router
+from routes.decision_routes import router as decision_router
+from routes.fraud_check_routes import router as fraud_check_router
 from routes.limit_tracking_routes import router as limit_tracking_router
 from routes.organisation_routes import router as organisation_router
 from routes.session_routes import router as session_router
 from routes.settings_routes import router as settings_router
+from routes.transaction_routes import router as transaction_router
 from routes.usage_routes import router as usage_router
 from routes.user_routes import router as user_router
 from routes.user_tracking_routes import router as user_tracking_router
@@ -23,10 +26,12 @@ from utils.exception_handling_utils import (
 
 import models.auth_models  # noqa: F401
 import models.billing_models  # noqa: F401
+import models.decision_models  # noqa: F401
 import models.limit_tracking_models  # noqa: F401
 import models.organisation_models  # noqa: F401
 import models.session_models  # noqa: F401
 import models.settings_models  # noqa: F401
+import models.transaction_models  # noqa: F401
 import models.usage_models  # noqa: F401
 import models.user_models  # noqa: F401
 
@@ -50,6 +55,9 @@ app.include_router(settings_router)
 app.include_router(usage_router)
 app.include_router(limit_tracking_router)
 app.include_router(user_tracking_router)
+app.include_router(transaction_router)
+app.include_router(decision_router)
+app.include_router(fraud_check_router)
 
 
 @app.on_event("startup")
