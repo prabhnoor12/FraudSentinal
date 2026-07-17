@@ -11,6 +11,8 @@ from routes.fraud_check_routes import router as fraud_check_router
 from routes.fraud_rule_routes import router as fraud_rule_router
 from routes.limit_tracking_routes import router as limit_tracking_router
 from routes.organisation_routes import router as organisation_router
+from routes.review_case_routes import router as review_case_router
+from routes.risk_signal_routes import router as risk_signal_router
 from routes.session_routes import router as session_router
 from routes.settings_routes import router as settings_router
 from routes.transaction_routes import router as transaction_router
@@ -32,6 +34,8 @@ import models.decision_models  # noqa: F401
 import models.fraud_rule_models  # noqa: F401
 import models.limit_tracking_models  # noqa: F401
 import models.organisation_models  # noqa: F401
+import models.review_case_models  # noqa: F401
+import models.risk_signal_models  # noqa: F401
 import models.session_models  # noqa: F401
 import models.settings_models  # noqa: F401
 import models.transaction_models  # noqa: F401
@@ -62,6 +66,8 @@ app.include_router(transaction_router)
 app.include_router(decision_router)
 app.include_router(fraud_check_router)
 app.include_router(fraud_rule_router)
+app.include_router(risk_signal_router)
+app.include_router(review_case_router)
 
 
 @app.on_event("startup")

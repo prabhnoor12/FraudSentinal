@@ -83,4 +83,5 @@ def score_transaction(db: Session, payload: TransactionCreate) -> dict:
         "risk_score": risk_score,
         "decision": decision,
         "reason_codes": reason_codes,
+        "matched_rules": matched_rules,
     }
