@@ -1,69 +1,74 @@
 from __future__ import annotations
 
+from sqlalchemy.orm import Session
+
 from schemas.decision_schemas import FraudDecision, ReasonCode
+from schemas.fraud_rule_schemas import FraudRuleOperator
 from schemas.transaction_schemas import TransactionCreate
+from services import fraud_rule_service, transaction_service
 
 
-RISKY_PAYMENT_METHODS = {"crypto", "gift_card", "prepaid_card", "wire_transfer"}
-MANUAL_REVIEW_CHANNELS = {"manual", "call_center", "moto"}
+def _is_missing(value) -> bool:
+    return value in {None, ""} or value == [] or value == {}
 
 
-def score_transaction(payload: TransactionCreate) -> dict:
-    score = 0.0
+def _matches_rule(rule, transaction_data: dict) -> bool:
+    operator = FraudRuleOperator(rule.operator)
+    candidate = transaction_data.get(rule.field_name)
+    comparison_value = rule.comparison_value
+
+    if operator == FraudRuleOperator.is_missing:
+        return _is_missing(candidate)
+
+    if operator == FraudRuleOperator.field_mismatch:
+        secondary_value = transaction_data.get(rule.secondary_field_name)
+        if _is_missing(candidate) or _is_missing(secondary_value):
+            return False
+        return candidate != secondary_value
+
+    if _is_missing(candidate):
+        return False
+
+    if operator == FraudRuleOperator.gte:
+        return candidate >= comparison_value
+    if operator == FraudRuleOperator.gt:
+        return candidate > comparison_value
+    if operator == FraudRuleOperator.lte:
+        return candidate <= comparison_value
+    if operator == FraudRuleOperator.lt:
+        return candidate < comparison_value
+    if operator == FraudRuleOperator.eq:
+        return candidate == comparison_value
+    if operator == FraudRuleOperator.neq:
+        return candidate != comparison_value
+    if operator == FraudRuleOperator.in_list:
+        return candidate in comparison_value
+    if operator == FraudRuleOperator.not_in:
+        return candidate not in comparison_value
+
+    return False
+
+
+def score_transaction(db: Session, payload: TransactionCreate) -> dict:
+    transaction_data = transaction_service.normalize_transaction_data(payload)
+    effective_rules = fraud_rule_service.list_effective_fraud_rules_service(
+        db,
+        organisation_id=payload.organisation_id,
+    )
+
+    matched_rules = []
     reason_codes: list[ReasonCode] = []
+    total_score = 0.0
 
-    def add_signal(points: float, reason_code: ReasonCode) -> None:
-        nonlocal score
-        score += points
-        if reason_code not in reason_codes:
-            reason_codes.append(reason_code)
+    for rule in effective_rules:
+        if _matches_rule(rule, transaction_data):
+            matched_rules.append(rule)
+            total_score += float(rule.weight)
+            reason_code = ReasonCode(rule.reason_code)
+            if reason_code not in reason_codes:
+                reason_codes.append(reason_code)
 
-    if payload.amount >= 2000:
-        add_signal(35, ReasonCode.high_amount)
-    elif payload.amount >= 1000:
-        add_signal(20, ReasonCode.high_amount)
-    elif payload.amount >= 500:
-        add_signal(10, ReasonCode.high_amount)
-
-    if payload.transactions_last_24h >= 10:
-        add_signal(25, ReasonCode.velocity_spike)
-    elif payload.transactions_last_24h >= 5:
-        add_signal(15, ReasonCode.velocity_spike)
-    elif payload.transactions_last_24h >= 3:
-        add_signal(8, ReasonCode.velocity_spike)
-
-    if payload.failed_attempts_last_24h >= 5:
-        add_signal(25, ReasonCode.repeated_failed_attempts)
-    elif payload.failed_attempts_last_24h >= 2:
-        add_signal(15, ReasonCode.repeated_failed_attempts)
-    elif payload.failed_attempts_last_24h >= 1:
-        add_signal(8, ReasonCode.repeated_failed_attempts)
-
-    if payload.account_age_days is not None:
-        if payload.account_age_days < 3:
-            add_signal(25, ReasonCode.new_account)
-        elif payload.account_age_days < 14:
-            add_signal(15, ReasonCode.new_account)
-        elif payload.account_age_days < 30:
-            add_signal(8, ReasonCode.new_account)
-
-    if (
-        payload.billing_country
-        and payload.shipping_country
-        and payload.billing_country.strip().upper() != payload.shipping_country.strip().upper()
-    ):
-        add_signal(15, ReasonCode.cross_border_mismatch)
-
-    if not payload.device_id:
-        add_signal(10, ReasonCode.missing_device)
-
-    if payload.payment_method.strip().lower() in RISKY_PAYMENT_METHODS:
-        add_signal(20, ReasonCode.risky_payment_method)
-
-    if payload.channel.strip().lower() in MANUAL_REVIEW_CHANNELS:
-        add_signal(10, ReasonCode.manual_entry)
-
-    risk_score = min(round(score, 2), 100.0)
+    risk_score = min(round(total_score, 2), 100.0)
     if risk_score >= 70:
         decision = FraudDecision.decline
     elif risk_score >= 40:

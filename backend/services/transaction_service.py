@@ -14,7 +14,7 @@ def _ensure_transaction_owners_exist(db: Session, *, user_id: int, organisation_
         raise NotFoundError("Organisation not found")
 
 
-def _normalize_transaction_data(payload: TransactionCreate) -> dict:
+def normalize_transaction_data(payload: TransactionCreate) -> dict:
     data = payload.model_dump()
     data["currency"] = data["currency"].strip().upper()
     data["payment_method"] = data["payment_method"].strip().lower()
@@ -61,7 +61,7 @@ def create_transaction_record(
     commit: bool = True,
 ):
     _ensure_transaction_owners_exist(db, user_id=payload.user_id, organisation_id=payload.organisation_id)
-    return transaction_crud.create_transaction(db, commit=commit, **_normalize_transaction_data(payload))
+    return transaction_crud.create_transaction(db, commit=commit, **normalize_transaction_data(payload))
 
 
 def get_transaction_service(db: Session, transaction_id: int) -> TransactionOut:

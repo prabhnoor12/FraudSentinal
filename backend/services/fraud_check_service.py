@@ -8,7 +8,7 @@ from services import decision_service, scoring_service, transaction_service
 
 
 def check_fraud_service(db: Session, payload: FraudCheckRequest) -> FraudCheckResponse:
-    score_result = scoring_service.score_transaction(payload)
+    score_result = scoring_service.score_transaction(db, payload)
 
     try:
         transaction = transaction_service.create_transaction_record(db, payload, commit=False)

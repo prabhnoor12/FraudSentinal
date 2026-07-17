@@ -1,13 +1,14 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 
-from database import init_db
+from database import SessionLocal, init_db
 from middleware.ip_limiting_middleware import IPLimitMiddleware
 from middleware.logging_middleware import LoggingMiddleware
 from middleware.rate_limiting_middleware import RateLimitMiddleware
 from routes.auth_routes import router as auth_router
 from routes.decision_routes import router as decision_router
 from routes.fraud_check_routes import router as fraud_check_router
+from routes.fraud_rule_routes import router as fraud_rule_router
 from routes.limit_tracking_routes import router as limit_tracking_router
 from routes.organisation_routes import router as organisation_router
 from routes.session_routes import router as session_router
@@ -16,6 +17,7 @@ from routes.transaction_routes import router as transaction_router
 from routes.usage_routes import router as usage_router
 from routes.user_routes import router as user_router
 from routes.user_tracking_routes import router as user_tracking_router
+from services import fraud_rule_service
 from utils.exception_handling_utils import (
     AppException,
     handle_app_exception,
@@ -27,6 +29,7 @@ from utils.exception_handling_utils import (
 import models.auth_models  # noqa: F401
 import models.billing_models  # noqa: F401
 import models.decision_models  # noqa: F401
+import models.fraud_rule_models  # noqa: F401
 import models.limit_tracking_models  # noqa: F401
 import models.organisation_models  # noqa: F401
 import models.session_models  # noqa: F401
@@ -58,11 +61,17 @@ app.include_router(user_tracking_router)
 app.include_router(transaction_router)
 app.include_router(decision_router)
 app.include_router(fraud_check_router)
+app.include_router(fraud_rule_router)
 
 
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
+    db = SessionLocal()
+    try:
+        fraud_rule_service.seed_default_fraud_rules(db)
+    finally:
+        db.close()
 
 
 @app.get("/health")
