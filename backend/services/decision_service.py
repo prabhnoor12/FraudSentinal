@@ -31,10 +31,14 @@ def create_decision_record(
     return decision_crud.create_decision(db, commit=commit, **payload.model_dump())
 
 
-def get_decision_service(db: Session, decision_id: int) -> DecisionOut:
+def get_decision_service(db: Session, decision_id: int, organisation_id: int | None = None) -> DecisionOut:
     decision = decision_crud.get_decision_by_id(db, decision_id)
     if not decision:
         raise NotFoundError("Decision not found")
+
+    if organisation_id is not None and decision.organisation_id != organisation_id:
+        raise NotFoundError("Decision not found")
+
     return serialize_decision(decision)
 
 

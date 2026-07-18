@@ -119,3 +119,17 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, Any
     Callers should map claims to application user objects as needed.
     """
     return decode_access_token(token)
+
+
+async def get_current_org_id(claims: Dict[str, Any] = Depends(get_current_user)) -> int:
+    """FastAPI dependency that returns the organisation_id from the current user's token.
+
+    Raises 403 if the user is not assigned to an organisation.
+    """
+    org_id = claims.get("org_id")
+    if org_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not assigned to an organisation",
+        )
+    return int(org_id)

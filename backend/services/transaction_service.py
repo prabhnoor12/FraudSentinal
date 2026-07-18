@@ -64,10 +64,14 @@ def create_transaction_record(
     return transaction_crud.create_transaction(db, commit=commit, **normalize_transaction_data(payload))
 
 
-def get_transaction_service(db: Session, transaction_id: int) -> TransactionOut:
+def get_transaction_service(db: Session, transaction_id: int, organisation_id: int | None = None) -> TransactionOut:
     transaction = transaction_crud.get_transaction_by_id(db, transaction_id)
     if not transaction:
         raise NotFoundError("Transaction not found")
+
+    if organisation_id is not None and transaction.organisation_id != organisation_id:
+        raise NotFoundError("Transaction not found")
+
     return serialize_transaction(transaction)
 
 

@@ -54,10 +54,14 @@ def create_review_case_if_needed(
     )
 
 
-def get_review_case_service(db: Session, case_id: int):
+def get_review_case_service(db: Session, case_id: int, organisation_id: int | None = None):
     review_case = review_case_crud.get_review_case_by_id(db, case_id)
     if not review_case:
         raise NotFoundError("Review case not found")
+
+    if organisation_id is not None and review_case.organisation_id != organisation_id:
+        raise NotFoundError("Review case not found")
+
     return review_case
 
 
@@ -80,8 +84,8 @@ def list_review_cases_service(
     )
 
 
-def update_review_case_service(db: Session, case_id: int, payload: ReviewCaseUpdate):
-    review_case = get_review_case_service(db, case_id)
+def update_review_case_service(db: Session, case_id: int, payload: ReviewCaseUpdate, organisation_id: int | None = None):
+    review_case = get_review_case_service(db, case_id, organisation_id=organisation_id)
     updates = payload.model_dump(exclude_unset=True)
 
     requested_status = updates.get("status")

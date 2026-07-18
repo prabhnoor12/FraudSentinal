@@ -318,15 +318,26 @@ def list_fraud_rules_service(
     )
 
 
-def get_fraud_rule_service(db: Session, rule_id: int):
+def get_fraud_rule_service(db: Session, rule_id: int, organisation_id: int | None = None):
     fraud_rule = fraud_rule_crud.get_fraud_rule_by_id(db, rule_id)
     if not fraud_rule:
         raise NotFoundError("Fraud rule not found")
+
+    # If organisation_id is provided, ensure the rule belongs to that org or is global
+    if organisation_id is not None and fraud_rule.organisation_id is not None:
+        if fraud_rule.organisation_id != organisation_id:
+            raise NotFoundError("Fraud rule not found")  # Use 404 to avoid leaking existence
+
     return fraud_rule
 
 
-def update_fraud_rule_service(db: Session, rule_id: int, payload: FraudRuleUpdate):
-    fraud_rule = get_fraud_rule_service(db, rule_id)
+def update_fraud_rule_service(db: Session, rule_id: int, payload: FraudRuleUpdate, organisation_id: int | None = None):
+    fraud_rule = get_fraud_rule_service(db, rule_id, organisation_id=organisation_id)
+
+    # Only org owners can update their own rules
+    if organisation_id is not None and fraud_rule.organisation_id != organisation_id:
+        raise ValidationError("Cannot update global rules or rules from other organisations")
+
     validated = _validate_rule_data(payload.model_dump(exclude_unset=True))
 
     if "organisation_id" in validated:
@@ -358,13 +369,17 @@ def update_fraud_rule_service(db: Session, rule_id: int, payload: FraudRuleUpdat
     return fraud_rule_crud.update_fraud_rule(db, fraud_rule, **validated)
 
 
-def enable_fraud_rule_service(db: Session, rule_id: int):
-    fraud_rule = get_fraud_rule_service(db, rule_id)
+def enable_fraud_rule_service(db: Session, rule_id: int, organisation_id: int | None = None):
+    fraud_rule = get_fraud_rule_service(db, rule_id, organisation_id=organisation_id)
+    if organisation_id is not None and fraud_rule.organisation_id != organisation_id:
+        raise ValidationError("Cannot enable global rules or rules from other organisations")
     return fraud_rule_crud.update_fraud_rule(db, fraud_rule, enabled=True)
 
 
-def disable_fraud_rule_service(db: Session, rule_id: int):
-    fraud_rule = get_fraud_rule_service(db, rule_id)
+def disable_fraud_rule_service(db: Session, rule_id: int, organisation_id: int | None = None):
+    fraud_rule = get_fraud_rule_service(db, rule_id, organisation_id=organisation_id)
+    if organisation_id is not None and fraud_rule.organisation_id != organisation_id:
+        raise ValidationError("Cannot disable global rules or rules from other organisations")
     return fraud_rule_crud.update_fraud_rule(db, fraud_rule, enabled=False)
 
 

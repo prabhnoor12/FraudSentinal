@@ -19,7 +19,10 @@ PASSWORD_RESET_EXPIRE_MINUTES = 30
 
 
 def _build_token_pair(db: Session, user) -> dict[str, str]:
-    access_token = create_access_token(subject=str(user.id), data={"email": user.email})
+    access_token = create_access_token(
+        subject=str(user.id),
+        data={"email": user.email, "org_id": user.organisation_id}
+    )
     refresh_token_value = generate_secure_token(32)
     refresh_expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     auth_crud.create_refresh_token(

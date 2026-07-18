@@ -19,10 +19,14 @@ def create_risk_signal_service(db: Session, payload: RiskSignalCreate, *, commit
     return risk_signal_crud.create_risk_signal(db, commit=commit, **payload.model_dump())
 
 
-def get_risk_signal_service(db: Session, risk_signal_id: int):
+def get_risk_signal_service(db: Session, risk_signal_id: int, organisation_id: int | None = None):
     risk_signal = risk_signal_crud.get_risk_signal_by_id(db, risk_signal_id)
     if not risk_signal:
         raise NotFoundError("Risk signal not found")
+
+    if organisation_id is not None and risk_signal.organisation_id != organisation_id:
+        raise NotFoundError("Risk signal not found")
+
     return risk_signal
 
 
