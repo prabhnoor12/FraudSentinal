@@ -26,7 +26,31 @@ def normalize_transaction_data(payload: TransactionCreate) -> dict:
         data["billing_country"] = data["billing_country"].strip().upper()
     if data.get("shipping_country"):
         data["shipping_country"] = data["shipping_country"].strip().upper()
+    if data.get("ip_address"):
+        data["ip_address"] = data["ip_address"].strip()
 
+    return data
+
+
+def normalize_transaction_data_with_enrichment(
+    payload: TransactionCreate,
+    enrichment_data: dict,
+) -> dict:
+    """Normalize transaction data and merge with enrichment signals.
+    
+    Args:
+        payload: The transaction create payload
+        enrichment_data: Flat dictionary from enrichment_service.get_enriched_transaction_data()
+    
+    Returns:
+        Merged dictionary with all transaction and enrichment fields
+    """
+    # Start with basic normalization
+    data = normalize_transaction_data(payload)
+    
+    # Merge enrichment data (enrichment takes precedence for overlapping fields)
+    data.update(enrichment_data)
+    
     return data
 
 

@@ -364,6 +364,28 @@ def get_fraud_rule_service(db: Session, rule_id: int, organisation_id: int | Non
     return fraud_rule
 
 
+def get_fraud_rule_by_code_service(
+    db: Session,
+    rule_code: str,
+    organisation_id: int | None = None,
+) -> Any | None:
+    """Get a fraud rule by its unique code.
+    
+    Args:
+        db: Database session
+        rule_code: Unique rule code (e.g., 'geolocation_billing_mismatch')
+        organisation_id: Optional organization scope
+    
+    Returns:
+        FraudRule if found, None otherwise
+    """
+    return fraud_rule_crud.get_fraud_rule_by_code(
+        db,
+        rule_code=rule_code,
+        organisation_id=organisation_id,
+    )
+
+
 def update_fraud_rule_service(
     db: Session,
     rule_id: int,

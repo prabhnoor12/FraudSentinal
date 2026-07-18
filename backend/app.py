@@ -14,6 +14,7 @@ from middleware.rate_limiting_middleware import RateLimitMiddleware
 from routes.auth_routes import router as auth_router
 from routes.audit_routes import router as audit_router
 from routes.decision_routes import router as decision_router
+from routes.enrichment_routes import router as enrichment_router
 from routes.fraud_check_routes import router as fraud_check_router
 from routes.fraud_rule_routes import router as fraud_rule_router
 from routes.limit_tracking_routes import router as limit_tracking_router
@@ -40,8 +41,10 @@ from utils.exception_handling_utils import (
 import models.auth_models  # noqa: F401
 import models.audit_models  # noqa: F401
 import models.billing_models  # noqa: F401
+import models.bin_lookup_models  # noqa: F401
 import models.decision_models  # noqa: F401
 import models.fraud_rule_models  # noqa: F401
+import models.ip_geolocation_models  # noqa: F401
 import models.limit_tracking_models  # noqa: F401
 import models.organisation_models  # noqa: F401
 import models.review_case_models  # noqa: F401
@@ -76,6 +79,7 @@ app.include_router(limit_tracking_router)
 app.include_router(user_tracking_router)
 app.include_router(transaction_router)
 app.include_router(decision_router)
+app.include_router(enrichment_router)
 app.include_router(fraud_check_router)
 app.include_router(fraud_rule_router)
 app.include_router(risk_signal_router)
