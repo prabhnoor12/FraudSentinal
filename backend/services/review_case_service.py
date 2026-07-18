@@ -5,7 +5,13 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from cruds import decision_crud, review_case_crud, transaction_crud
-from schemas.review_case_schemas import ReviewCaseCreate, ReviewCaseStatus, ReviewCaseUpdate
+from schemas.review_case_schemas import (
+    ReviewCaseCreate,
+    ReviewCaseReopen,
+    ReviewCaseResolve,
+    ReviewCaseStatus,
+    ReviewCaseUpdate,
+)
 from utils.exception_handling_utils import ConflictError, NotFoundError, ValidationError
 
 
@@ -104,3 +110,69 @@ def update_review_case_service(db: Session, case_id: int, payload: ReviewCaseUpd
         updates["resolved_at"] = None
 
     return review_case_crud.update_review_case(db, review_case, **updates)
+
+
+def resolve_review_case_service(
+    db: Session,
+    case_id: int,
+    payload: ReviewCaseResolve,
+    organisation_id: int | None = None,
+):
+    """Explicitly resolve a review case."""
+    review_case = get_review_case_service(db, case_id, organisation_id=organisation_id)
+
+    if review_case.status == ReviewCaseStatus.resolved:
+        raise ValidationError("Review case is already resolved")
+
+    updates = {
+        "status": ReviewCaseStatus.resolved,
+        "resolution": payload.resolution,
+        "notes": payload.notes or review_case.notes,
+        "resolved_at": datetime.utcnow(),
+    }
+    if payload.metadata:
+        merged_metadata = (review_case.metadata or {}).copy()
+        merged_metadata.update(payload.metadata)
+        updates["metadata"] = merged_metadata
+
+    return review_case_crud.update_review_case(db, review_case, **updates)
+
+
+def reopen_review_case_service(
+    db: Session,
+    case_id: int,
+    payload: ReviewCaseReopen,
+    organisation_id: int | None = None,
+):
+    """Explicitly reopen a resolved review case."""
+    review_case = get_review_case_service(db, case_id, organisation_id=organisation_id)
+
+    if review_case.status == ReviewCaseStatus.open:
+        raise ValidationError("Review case is already open")
+
+    updates = {
+        "status": ReviewCaseStatus.open,
+        "resolution": None,
+        "resolved_at": None,
+        "notes": payload.notes or review_case.notes,
+    }
+    if payload.metadata:
+        merged_metadata = (review_case.metadata or {}).copy()
+        merged_metadata.update(payload.metadata)
+        updates["metadata"] = merged_metadata
+
+    return review_case_crud.update_review_case(db, review_case, **updates)
+
+
+def list_my_queue_service(
+    db: Session,
+    organisation_id: int,
+    limit: int = 100,
+):
+    """List open review cases for the current organisation (my queue)."""
+    return review_case_crud.list_review_cases(
+        db,
+        organisation_id=organisation_id,
+        status=ReviewCaseStatus.open,
+        limit=limit,
+    )

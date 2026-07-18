@@ -41,6 +41,17 @@ class ReviewCaseUpdate(BaseModel):
     metadata: dict[str, Any] | None = None
 
 
+class ReviewCaseResolve(BaseModel):
+    resolution: ReviewCaseResolution
+    notes: str | None = Field(default=None, max_length=2000)
+    metadata: dict[str, Any] | None = None
+
+
+class ReviewCaseReopen(BaseModel):
+    notes: str | None = Field(default=None, max_length=2000)
+    metadata: dict[str, Any] | None = None
+
+
 class ReviewCaseOut(ReviewCaseBase):
     id: int
     created_at: datetime

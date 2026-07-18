@@ -3,7 +3,12 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_org_id, oauth2_scheme
 from database import get_db
-from schemas.review_case_schemas import ReviewCaseOut, ReviewCaseUpdate
+from schemas.review_case_schemas import (
+    ReviewCaseOut,
+    ReviewCaseReopen,
+    ReviewCaseResolve,
+    ReviewCaseUpdate,
+)
 from services import auth_service, review_case_service
 
 router = APIRouter(prefix="/review-cases", tags=["review-cases"])
@@ -52,3 +57,39 @@ def update_review_case(
     db: Session = Depends(get_db),
 ):
     return review_case_service.update_review_case_service(db, case_id, payload, organisation_id=org_id)
+
+
+@router.get("/queue/my", response_model=list[ReviewCaseOut])
+def list_my_queue(
+    limit: int = 100,
+    org_id: int = Depends(get_current_org_id),
+    db: Session = Depends(get_db),
+):
+    """List open review cases for the current organisation (my queue)."""
+    return review_case_service.list_my_queue_service(db, organisation_id=org_id, limit=limit)
+
+
+@router.post("/{case_id}/resolve", response_model=ReviewCaseOut)
+def resolve_review_case(
+    case_id: int,
+    payload: ReviewCaseResolve,
+    org_id: int = Depends(get_current_org_id),
+    db: Session = Depends(get_db),
+):
+    """Explicitly resolve a review case."""
+    return review_case_service.resolve_review_case_service(
+        db, case_id, payload, organisation_id=org_id
+    )
+
+
+@router.post("/{case_id}/reopen", response_model=ReviewCaseOut)
+def reopen_review_case(
+    case_id: int,
+    payload: ReviewCaseReopen,
+    org_id: int = Depends(get_current_org_id),
+    db: Session = Depends(get_db),
+):
+    """Explicitly reopen a resolved review case."""
+    return review_case_service.reopen_review_case_service(
+        db, case_id, payload, organisation_id=org_id
+    )
