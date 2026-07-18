@@ -7,6 +7,8 @@ from pydantic import BaseModel
 class OrganisationSettingsBase(BaseModel):
     currency: str = "USD"
     timezone: str = "UTC"
+    review_threshold: int = 40
+    decline_threshold: int = 70
     enable_billing: bool = True
     enable_usage_tracking: bool = True
     notification_email: Optional[str] = None
@@ -20,6 +22,8 @@ class OrganisationSettingsCreate(OrganisationSettingsBase):
 class OrganisationSettingsUpdate(BaseModel):
     currency: Optional[str] = None
     timezone: Optional[str] = None
+    review_threshold: Optional[int] = None
+    decline_threshold: Optional[int] = None
     enable_billing: Optional[bool] = None
     enable_usage_tracking: Optional[bool] = None
     notification_email: Optional[str] = None

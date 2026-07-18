@@ -1,15 +1,23 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
+from dotenv import load_dotenv
+import os
 
+# Load environment variables from .env file
+load_dotenv()
+
+from auth import SECRET_KEY
 from database import SessionLocal, init_db
 from middleware.ip_limiting_middleware import IPLimitMiddleware
 from middleware.logging_middleware import LoggingMiddleware
 from middleware.rate_limiting_middleware import RateLimitMiddleware
 from routes.auth_routes import router as auth_router
+from routes.audit_routes import router as audit_router
 from routes.decision_routes import router as decision_router
 from routes.fraud_check_routes import router as fraud_check_router
 from routes.fraud_rule_routes import router as fraud_rule_router
 from routes.limit_tracking_routes import router as limit_tracking_router
+from routes.mfa_routes import router as mfa_router
 from routes.organisation_routes import router as organisation_router
 from routes.review_case_routes import router as review_case_router
 from routes.risk_signal_routes import router as risk_signal_router
@@ -20,6 +28,7 @@ from routes.usage_routes import router as usage_router
 from routes.user_routes import router as user_router
 from routes.user_tracking_routes import router as user_tracking_router
 from services import fraud_rule_service
+from utils.security_utils import validate_secret_key
 from utils.exception_handling_utils import (
     AppException,
     handle_app_exception,
@@ -29,6 +38,7 @@ from utils.exception_handling_utils import (
 )
 
 import models.auth_models  # noqa: F401
+import models.audit_models  # noqa: F401
 import models.billing_models  # noqa: F401
 import models.decision_models  # noqa: F401
 import models.fraud_rule_models  # noqa: F401
@@ -55,6 +65,8 @@ app.add_exception_handler(RequestValidationError, handle_validation_exception)
 app.add_exception_handler(Exception, handle_unexpected_exception)
 
 app.include_router(auth_router)
+app.include_router(audit_router)
+app.include_router(mfa_router)
 app.include_router(user_router)
 app.include_router(organisation_router)
 app.include_router(session_router)
@@ -70,8 +82,23 @@ app.include_router(risk_signal_router)
 app.include_router(review_case_router)
 
 
+import logging
+import sys
+
+logger = logging.getLogger("fraudsentinel.app")
+
+
 @app.on_event("startup")
 def on_startup() -> None:
+    # 1. Validate Security Configuration
+    try:
+        validate_secret_key(SECRET_KEY)
+    except ValueError as e:
+        logger.critical(f"CRITICAL SECURITY CONFIGURATION ERROR: {str(e)}")
+        logger.critical("Application startup aborted due to missing or weak SECRET_KEY.")
+        sys.exit(1)
+
+    # 2. Initialize Database
     init_db()
     db = SessionLocal()
     try:

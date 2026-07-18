@@ -16,9 +16,17 @@ class LoginRequest(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
     token_type: str = "bearer"
+    mfa_required: bool = False
+    pre_auth_token: Optional[str] = None
+    message: Optional[str] = None
+
+
+class MFALoginRequest(BaseModel):
+    pre_auth_token: str
+    code: str
 
 
 class RefreshTokenRequest(BaseModel):

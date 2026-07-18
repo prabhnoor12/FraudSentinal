@@ -39,17 +39,69 @@ def hash_value(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-def is_strong_password(password: str) -> bool:
-    """Validate password strength requirements."""
+COMMON_WEAK_PASSWORDS = {
+    "password", "password123", "123456", "qwerty", "admin", "welcome",
+    "fraudsentinel", "investigator", "secret", "security"
+}
+
+
+def is_strong_password(password: str, user_info: Optional[Mapping[str, str]] = None) -> bool:
+    """Validate password strength requirements.
+
+    Requirements:
+    - Min length 12
+    - At least 3 of: upper, lower, digit, symbol
+    - Not a common weak password
+    - Not containing user personal info (email, full name)
+    """
     if not isinstance(password, str) or len(password) < 12:
         return False
 
+    # Check for character types
     has_upper = any(char.isupper() for char in password)
     has_lower = any(char.islower() for char in password)
     has_digit = any(char.isdigit() for char in password)
     has_symbol = any(char in string.punctuation for char in password)
 
-    return has_upper and has_lower and has_digit and has_symbol
+    types_count = sum([has_upper, has_lower, has_digit, has_symbol])
+    if types_count < 3:
+        return False
+
+    # Check for common weak passwords
+    if password.lower() in COMMON_WEAK_PASSWORDS:
+        return False
+
+    # Check for personal info
+    if user_info:
+        for key in ["email", "full_name", "phone"]:
+            info = user_info.get(key)
+            if info and info.lower() in password.lower():
+                return False
+
+    return True
+
+
+def validate_secret_key(key: Optional[str]) -> None:
+    """Validate that the SECRET_KEY meets security standards.
+
+    Requirements:
+    - Non-empty
+    - At least 32 characters
+    - Contains mix of upper, lower, digits, and symbols
+    """
+    if not key:
+        raise ValueError("SECRET_KEY must be provided via environment variables or vault")
+
+    if len(key) < 32:
+        raise ValueError("SECRET_KEY must be at least 32 characters long")
+
+    has_upper = any(char.isupper() for char in key)
+    has_lower = any(char.islower() for char in key)
+    has_digit = any(char.isdigit() for char in key)
+    has_symbol = any(char in string.punctuation or char in "!@#$%^&*()_+-=[]{}|;:,.<>?" for char in key)
+
+    if not (has_upper and has_lower and has_digit and has_symbol):
+        raise ValueError("SECRET_KEY must contain uppercase, lowercase, numbers, and special symbols")
 
 
 def validate_email(email: str) -> bool:

@@ -14,3 +14,4 @@ asyncpg
 ruff
 pwdlib
 email-validator
+python-dotenv

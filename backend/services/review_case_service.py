@@ -4,7 +4,10 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
+from typing import Optional
+
 from cruds import decision_crud, review_case_crud, transaction_crud
+from schemas.audit_schemas import AuditContext
 from schemas.review_case_schemas import (
     ReviewCaseCreate,
     ReviewCaseReopen,
@@ -12,6 +15,7 @@ from schemas.review_case_schemas import (
     ReviewCaseStatus,
     ReviewCaseUpdate,
 )
+from services.audit_service import AuditService
 from utils.exception_handling_utils import ConflictError, NotFoundError, ValidationError
 
 
@@ -117,6 +121,7 @@ def resolve_review_case_service(
     case_id: int,
     payload: ReviewCaseResolve,
     organisation_id: int | None = None,
+    audit_ctx: Optional[AuditContext] = None,
 ):
     """Explicitly resolve a review case."""
     review_case = get_review_case_service(db, case_id, organisation_id=organisation_id)
@@ -135,7 +140,21 @@ def resolve_review_case_service(
         merged_metadata.update(payload.metadata)
         updates["metadata"] = merged_metadata
 
-    return review_case_crud.update_review_case(db, review_case, **updates)
+    result = review_case_crud.update_review_case(db, review_case, **updates)
+
+    if audit_ctx:
+        AuditService.log_case_action(
+            db,
+            user_id=audit_ctx.user_id,
+            organisation_id=audit_ctx.organisation_id,
+            action="resolve",
+            case_id=case_id,
+            notes=payload.notes,
+            ip_address=audit_ctx.ip_address,
+            user_agent=audit_ctx.user_agent
+        )
+
+    return result
 
 
 def reopen_review_case_service(
@@ -143,6 +162,7 @@ def reopen_review_case_service(
     case_id: int,
     payload: ReviewCaseReopen,
     organisation_id: int | None = None,
+    audit_ctx: Optional[AuditContext] = None,
 ):
     """Explicitly reopen a resolved review case."""
     review_case = get_review_case_service(db, case_id, organisation_id=organisation_id)
@@ -161,7 +181,21 @@ def reopen_review_case_service(
         merged_metadata.update(payload.metadata)
         updates["metadata"] = merged_metadata
 
-    return review_case_crud.update_review_case(db, review_case, **updates)
+    result = review_case_crud.update_review_case(db, review_case, **updates)
+
+    if audit_ctx:
+        AuditService.log_case_action(
+            db,
+            user_id=audit_ctx.user_id,
+            organisation_id=audit_ctx.organisation_id,
+            action="reopen",
+            case_id=case_id,
+            notes=payload.notes,
+            ip_address=audit_ctx.ip_address,
+            user_agent=audit_ctx.user_agent
+        )
+
+    return result
 
 
 def list_my_queue_service(

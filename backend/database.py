@@ -1,10 +1,17 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./fraud_detection.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    # Fallback for local development if .env is missing
+    DATABASE_URL = "sqlite:///./fraud_detection.db"
 
 connect_args = {}
 if DATABASE_URL.startswith("sqlite"):

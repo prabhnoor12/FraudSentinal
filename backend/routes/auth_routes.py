@@ -6,6 +6,7 @@ from database import get_db
 from schemas.auth_schemas import (
     AuthUserOut,
     LoginRequest,
+    MFALoginRequest,
     PasswordResetConfirm,
     PasswordResetRequest,
     RefreshTokenRequest,
@@ -33,6 +34,18 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
     return auth_service.authenticate_user(db, payload)
+
+
+@router.post("/mfa-login", response_model=TokenResponse)
+def mfa_login(payload: MFALoginRequest, db: Session = Depends(get_db)):
+    # Decode pre_auth_token to get user_id
+    claims = auth_service.decode_access_token(payload.pre_auth_token)
+    if not claims.get("mfa_pending"):
+        from utils.exception_handling_utils import UnauthorizedError
+        raise UnauthorizedError("Invalid pre-authentication token")
+        
+    user_id = int(claims["sub"])
+    return auth_service.verify_mfa_login(db, user_id, payload.code)
 
 
 @router.post("/refresh", response_model=TokenResponse)

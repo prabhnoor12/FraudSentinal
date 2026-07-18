@@ -53,7 +53,10 @@ def register_user(db: Session, payload: RegisterRequest):
     )
 
 
-def authenticate_user(db: Session, payload: LoginRequest) -> dict[str, str]:
+from services.mfa_service import MFAService
+
+
+def authenticate_user(db: Session, payload: LoginRequest) -> dict[str, Any]:
     email = normalize_email(payload.email)
     user = user_crud.get_user_by_email(db, email)
     if not user or not user.password_hash:
@@ -67,7 +70,43 @@ def authenticate_user(db: Session, payload: LoginRequest) -> dict[str, str]:
     if new_hash:
         user_crud.update_user(db, user, password_hash=new_hash)
 
+    # Check for MFA
+    if user.mfa_enabled or user.role == "investigator":
+        if not user.mfa_enabled:
+            # For investigators, we might want to force setup, but for now just 
+            # return a flag saying MFA setup is required or MFA code is needed
+            # In a real system, we'd redirect to MFA setup.
+            pass
+            
+        if user.mfa_enabled:
+            # Generate a temporary pre-auth token
+            pre_auth_token = create_access_token(
+                subject=str(user.id),
+                data={"mfa_pending": True},
+                expires_delta=timedelta(minutes=5)
+            )
+            return {
+                "mfa_required": True,
+                "pre_auth_token": pre_auth_token,
+                "message": "MFA code required"
+            }
+
     return _build_token_pair(db, user)
+
+
+def verify_mfa_login(db: Session, user_id: int, code: str) -> dict[str, Any]:
+    user = user_crud.get_user_by_id(db, user_id)
+    if not user or not user.is_active:
+        raise UnauthorizedError("User not found or inactive")
+        
+    if not user.mfa_enabled:
+        raise ValidationError("MFA is not enabled for this user")
+        
+    # Check TOTP code or backup code
+    if MFAService.verify_code(user, code) or MFAService.verify_backup_code(db, user, code):
+        return _build_token_pair(db, user)
+        
+    raise UnauthorizedError("Invalid MFA code")
 
 
 def refresh_user_tokens(db: Session, refresh_token_value: str) -> dict[str, str]:

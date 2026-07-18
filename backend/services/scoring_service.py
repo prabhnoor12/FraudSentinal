@@ -56,6 +56,17 @@ def score_transaction(db: Session, payload: TransactionCreate) -> dict:
         organisation_id=payload.organisation_id,
     )
 
+    # Load organisation settings for custom thresholds
+    from services.settings_service import get_organisation_settings_service
+    try:
+        settings = get_organisation_settings_service(db, payload.organisation_id)
+        review_threshold = settings.review_threshold
+        decline_threshold = settings.decline_threshold
+    except Exception:
+        # Defaults if settings not found
+        review_threshold = 40
+        decline_threshold = 70
+
     matched_rules = []
     reason_codes: list[ReasonCode] = []
     total_score = 0.0
@@ -69,9 +80,9 @@ def score_transaction(db: Session, payload: TransactionCreate) -> dict:
                 reason_codes.append(reason_code)
 
     risk_score = min(round(total_score, 2), 100.0)
-    if risk_score >= 70:
+    if risk_score >= decline_threshold:
         decision = FraudDecision.decline
-    elif risk_score >= 40:
+    elif risk_score >= review_threshold:
         decision = FraudDecision.review
     else:
         decision = FraudDecision.approve

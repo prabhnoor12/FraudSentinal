@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_org_id, oauth2_scheme
 from database import get_db
 from schemas.organisation_schemas import OrganisationCreate, OrganisationOut, OrganisationUpdate
-from services import auth_service, organisation_service
+from services import auth_service, organisation_service, organisation_summary_service
 
 
 router = APIRouter(prefix="/organisations", tags=["organisations"])
@@ -27,6 +27,15 @@ def list_organisations(
     # For now, a user can only see their own organisation in the list
     # In a system admin context, this would be different
     return [organisation_service.get_organisation_service(db, org_id)]
+
+
+@router.get("/dashboard/summary")
+def get_organisation_summary(
+    org_id: int = Depends(get_current_org_id),
+    db: Session = Depends(get_db),
+):
+    """Get a summary of activity for the organisation dashboard."""
+    return organisation_summary_service.OrganisationSummaryService.get_dashboard_summary(db, organisation_id=org_id)
 
 
 @router.post("", response_model=OrganisationOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_auth)])

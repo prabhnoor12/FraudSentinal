@@ -14,14 +14,27 @@ from secrets import token_urlsafe
 from authlib.jose import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from utils.security_utils import validate_secret_key
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT / token configuration (override via env vars)
-SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+
+# Validate SECRET_KEY on import (will be caught on startup)
+try:
+    validate_secret_key(SECRET_KEY)
+except ValueError as e:
+    # We don't exit here because some tools might just import auth.py
+    # app.py will do the final check on startup
+    pass
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 

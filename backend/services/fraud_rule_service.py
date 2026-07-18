@@ -3,6 +3,8 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from cruds import fraud_rule_crud, organisation_crud
+from models.fraud_rule_models import FraudRule
+from schemas.audit_schemas import AuditContext
 from schemas.decision_schemas import ReasonCode
 from schemas.fraud_rule_schemas import (
     FraudRuleCreate,
@@ -10,6 +12,7 @@ from schemas.fraud_rule_schemas import (
     FraudRuleOperator,
     FraudRuleUpdate,
 )
+from services.audit_service import AuditService
 from utils.exception_handling_utils import ConflictError, NotFoundError, ValidationError
 
 
@@ -286,7 +289,23 @@ def _ensure_organisation_exists(db: Session, organisation_id: int | None) -> Non
         raise NotFoundError("Organisation not found")
 
 
-def create_fraud_rule_service(db: Session, payload: FraudRuleCreate):
+def _rule_to_dict(rule: FraudRule) -> dict:
+    """Serialize a FraudRule model to a dict for auditing."""
+    return {
+        "name": rule.name,
+        "rule_code": rule.rule_code,
+        "description": rule.description,
+        "weight": rule.weight,
+        "field_name": rule.field_name,
+        "operator": rule.operator,
+        "comparison_value": rule.comparison_value,
+        "secondary_field_name": rule.secondary_field_name,
+        "enabled": rule.enabled,
+        "priority": rule.priority,
+    }
+
+
+def create_fraud_rule_service(db: Session, payload: FraudRuleCreate, audit_ctx: AuditContext | None = None):
     _ensure_organisation_exists(db, payload.organisation_id)
     validated = _validate_rule_data(payload.model_dump())
 
@@ -298,7 +317,21 @@ def create_fraud_rule_service(db: Session, payload: FraudRuleCreate):
     if existing:
         raise ConflictError("Fraud rule code already exists for this scope")
 
-    return fraud_rule_crud.create_fraud_rule(db, **validated)
+    rule = fraud_rule_crud.create_fraud_rule(db, **validated)
+
+    if audit_ctx:
+        AuditService.log_rule_change(
+            db,
+            user_id=audit_ctx.user_id,
+            organisation_id=audit_ctx.organisation_id,
+            action="create",
+            rule_id=rule.id,
+            new_value=_rule_to_dict(rule),
+            ip_address=audit_ctx.ip_address,
+            user_agent=audit_ctx.user_agent,
+        )
+
+    return rule
 
 
 def list_fraud_rules_service(
@@ -331,8 +364,15 @@ def get_fraud_rule_service(db: Session, rule_id: int, organisation_id: int | Non
     return fraud_rule
 
 
-def update_fraud_rule_service(db: Session, rule_id: int, payload: FraudRuleUpdate, organisation_id: int | None = None):
+def update_fraud_rule_service(
+    db: Session,
+    rule_id: int,
+    payload: FraudRuleUpdate,
+    organisation_id: int | None = None,
+    audit_ctx: AuditContext | None = None,
+):
     fraud_rule = get_fraud_rule_service(db, rule_id, organisation_id=organisation_id)
+    old_rule_data = _rule_to_dict(fraud_rule)
 
     # Only org owners can update their own rules
     if organisation_id is not None and fraud_rule.organisation_id != organisation_id:
@@ -366,21 +406,78 @@ def update_fraud_rule_service(db: Session, rule_id: int, payload: FraudRuleUpdat
 
     _validate_rule_data(merged_data)
 
-    return fraud_rule_crud.update_fraud_rule(db, fraud_rule, **validated)
+    updated_rule = fraud_rule_crud.update_fraud_rule(db, fraud_rule, **validated)
+
+    if audit_ctx:
+        AuditService.log_rule_change(
+            db,
+            user_id=audit_ctx.user_id,
+            organisation_id=audit_ctx.organisation_id,
+            action="update",
+            rule_id=updated_rule.id,
+            old_value=old_rule_data,
+            new_value=_rule_to_dict(updated_rule),
+            ip_address=audit_ctx.ip_address,
+            user_agent=audit_ctx.user_agent,
+        )
+
+    return updated_rule
 
 
-def enable_fraud_rule_service(db: Session, rule_id: int, organisation_id: int | None = None):
+def enable_fraud_rule_service(
+    db: Session,
+    rule_id: int,
+    organisation_id: int | None = None,
+    audit_ctx: AuditContext | None = None,
+):
     fraud_rule = get_fraud_rule_service(db, rule_id, organisation_id=organisation_id)
     if organisation_id is not None and fraud_rule.organisation_id != organisation_id:
         raise ValidationError("Cannot enable global rules or rules from other organisations")
-    return fraud_rule_crud.update_fraud_rule(db, fraud_rule, enabled=True)
+
+    old_rule_data = _rule_to_dict(fraud_rule)
+    updated_rule = fraud_rule_crud.update_fraud_rule(db, fraud_rule, enabled=True)
+
+    if audit_ctx:
+        AuditService.log_rule_change(
+            db,
+            user_id=audit_ctx.user_id,
+            organisation_id=audit_ctx.organisation_id,
+            action="enable",
+            rule_id=updated_rule.id,
+            old_value=old_rule_data,
+            new_value=_rule_to_dict(updated_rule),
+            ip_address=audit_ctx.ip_address,
+            user_agent=audit_ctx.user_agent,
+        )
+    return updated_rule
 
 
-def disable_fraud_rule_service(db: Session, rule_id: int, organisation_id: int | None = None):
+def disable_fraud_rule_service(
+    db: Session,
+    rule_id: int,
+    organisation_id: int | None = None,
+    audit_ctx: AuditContext | None = None,
+):
     fraud_rule = get_fraud_rule_service(db, rule_id, organisation_id=organisation_id)
     if organisation_id is not None and fraud_rule.organisation_id != organisation_id:
         raise ValidationError("Cannot disable global rules or rules from other organisations")
-    return fraud_rule_crud.update_fraud_rule(db, fraud_rule, enabled=False)
+
+    old_rule_data = _rule_to_dict(fraud_rule)
+    updated_rule = fraud_rule_crud.update_fraud_rule(db, fraud_rule, enabled=False)
+
+    if audit_ctx:
+        AuditService.log_rule_change(
+            db,
+            user_id=audit_ctx.user_id,
+            organisation_id=audit_ctx.organisation_id,
+            action="disable",
+            rule_id=updated_rule.id,
+            old_value=old_rule_data,
+            new_value=_rule_to_dict(updated_rule),
+            ip_address=audit_ctx.ip_address,
+            user_agent=audit_ctx.user_agent,
+        )
+    return updated_rule
 
 
 def list_effective_fraud_rules_service(db: Session, *, organisation_id: int | None = None):

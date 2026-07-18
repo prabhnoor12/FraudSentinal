@@ -1,11 +1,49 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy.orm import Session
 
 from schemas.decision_schemas import DecisionCreate
 from schemas.fraud_check_schemas import FraudCheckRequest, FraudCheckResponse
 from schemas.risk_signal_schemas import RiskSignalCreate
-from services import decision_service, review_case_service, risk_signal_service, scoring_service, transaction_service
+from services import decision_service, fraud_rule_service, review_case_service, risk_signal_service, scoring_service, transaction_service
+
+
+def _build_scoring_snapshot(db: Session, organisation_id: int | None) -> dict:
+    """Capture the exact rule configuration at decision time."""
+    from schemas.fraud_rule_schemas import FraudRuleOperator
+    
+    effective_rules = fraud_rule_service.list_effective_fraud_rules_service(
+        db, organisation_id=organisation_id
+    )
+    
+    snapshot = {
+        "captured_at": datetime.utcnow().isoformat(),
+        "organisation_id": organisation_id,
+        "rules_version": "v1.0",
+        "rules_count": len(effective_rules),
+        "rules": []
+    }
+    
+    for rule in effective_rules:
+        rule_data = {
+            "id": rule.id,
+            "name": rule.name,
+            "rule_code": rule.rule_code,
+            "reason_code": rule.reason_code,
+            "weight": rule.weight,
+            "field_name": rule.field_name,
+            "operator": str(rule.operator) if isinstance(rule.operator, FraudRuleOperator) else rule.operator,
+            "comparison_value": rule.comparison_value,
+            "secondary_field_name": rule.secondary_field_name,
+            "priority": rule.priority,
+            "enabled": rule.enabled,
+            "organisation_id": rule.organisation_id,
+        }
+        snapshot["rules"].append(rule_data)
+    
+    return snapshot
 
 
 def check_fraud_service(db: Session, payload: FraudCheckRequest) -> FraudCheckResponse:
@@ -16,6 +54,8 @@ def check_fraud_service(db: Session, payload: FraudCheckRequest) -> FraudCheckRe
         transaction = transaction_service.create_transaction_record(db, payload, commit=False)
         db.flush()
 
+        scoring_snapshot = _build_scoring_snapshot(db, transaction.organisation_id)
+        
         decision = decision_service.create_decision_record(
             db,
             DecisionCreate(
@@ -25,6 +65,7 @@ def check_fraud_service(db: Session, payload: FraudCheckRequest) -> FraudCheckRe
                 risk_score=score_result["risk_score"],
                 decision=score_result["decision"],
                 reason_codes=score_result["reason_codes"],
+                scoring_snapshot=scoring_snapshot,
             ),
             commit=False,
         )

@@ -17,4 +17,5 @@ class Decision(Base):
     risk_score = Column(Float, nullable=False, index=True)
     decision = Column(String(20), nullable=False, index=True)
     reason_codes = Column(JSON, default=list, nullable=False)
+    scoring_snapshot = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)

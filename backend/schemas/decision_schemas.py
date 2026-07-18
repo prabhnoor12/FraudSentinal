@@ -40,6 +40,7 @@ class DecisionCreate(DecisionBase):
 
 class DecisionOut(DecisionBase):
     id: int
+    scoring_snapshot: dict | None = None
     created_at: datetime
 
     class Config:
