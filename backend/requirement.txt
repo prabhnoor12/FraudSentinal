@@ -11,7 +11,9 @@ Authlib
 pytest
 httpx
 asyncpg
+psycopg[binary]
 ruff
 pwdlib
 email-validator
 python-dotenv
+psycopg 

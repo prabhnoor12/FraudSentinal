@@ -1,17 +1,27 @@
 import os
+
 from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 load_dotenv()
 
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+def get_database_url() -> str:
+    """Return the configured database URL with basic normalization."""
+    database_url = os.getenv("DATABASE_URL")
 
-if not DATABASE_URL:
-    # Fallback for local development if .env is missing
-    DATABASE_URL = "sqlite:///./fraud_detection.db"
+    if not database_url:
+        # Fallback for local development if .env is missing.
+        return "sqlite:///./fraud_detection.db"
+
+    if database_url.startswith("postgres://"):
+        return database_url.replace("postgres://", "postgresql://", 1)
+
+    return database_url
+
+
+DATABASE_URL = get_database_url()
 
 connect_args = {}
 if DATABASE_URL.startswith("sqlite"):
@@ -42,7 +52,7 @@ def get_db():
 
 
 def init_db() -> None:
-    """Create database tables for all imported SQLAlchemy models."""
+    """Legacy helper to create database tables for imported SQLAlchemy models."""
     Base.metadata.create_all(bind=engine)
 
 

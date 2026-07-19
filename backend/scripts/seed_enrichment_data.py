@@ -10,10 +10,12 @@ Run: python scripts/seed_enrichment_data.py
 import sys
 import os
 
+from sqlalchemy.orm import Session
+
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database import SessionLocal, init_db
+from database import SessionLocal
 from cruds import ip_geolocation_crud, bin_lookup_crud
 
 
@@ -96,9 +98,8 @@ def seed_bin_lookups(db: Session) -> int:
 
 def main():
     """Main seeding function."""
-    print("Initializing database...")
-    init_db()
-    
+    print("Using existing migrated database schema...")
+
     db = SessionLocal()
     try:
         print("Seeding IP geolocation data...")

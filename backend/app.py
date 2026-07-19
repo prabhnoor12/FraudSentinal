@@ -7,7 +7,7 @@ import os
 load_dotenv()
 
 from auth import SECRET_KEY
-from database import SessionLocal, init_db
+from database import SessionLocal
 from middleware.ip_limiting_middleware import IPLimitMiddleware
 from middleware.logging_middleware import LoggingMiddleware
 from middleware.rate_limiting_middleware import RateLimitMiddleware
@@ -37,23 +37,7 @@ from utils.exception_handling_utils import (
     handle_unexpected_exception,
     handle_validation_exception,
 )
-
-import models.auth_models  # noqa: F401
-import models.audit_models  # noqa: F401
-import models.billing_models  # noqa: F401
-import models.bin_lookup_models  # noqa: F401
-import models.decision_models  # noqa: F401
-import models.fraud_rule_models  # noqa: F401
-import models.ip_geolocation_models  # noqa: F401
-import models.limit_tracking_models  # noqa: F401
-import models.organisation_models  # noqa: F401
-import models.review_case_models  # noqa: F401
-import models.risk_signal_models  # noqa: F401
-import models.session_models  # noqa: F401
-import models.settings_models  # noqa: F401
-import models.transaction_models  # noqa: F401
-import models.usage_models  # noqa: F401
-import models.user_models  # noqa: F401
+import models  # noqa: F401
 
 
 app = FastAPI(title="FraudSentinal Backend", version="0.1.0")
@@ -102,8 +86,6 @@ def on_startup() -> None:
         logger.critical("Application startup aborted due to missing or weak SECRET_KEY.")
         sys.exit(1)
 
-    # 2. Initialize Database
-    init_db()
     db = SessionLocal()
     try:
         fraud_rule_service.seed_default_fraud_rules(db)
