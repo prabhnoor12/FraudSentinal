@@ -71,13 +71,13 @@ def score_transaction(db: Session, payload: TransactionCreate) -> dict:
     )
 
     # Load organisation settings for custom thresholds
-    from services.settings_service import get_organisation_settings_service
+    from services.settings_service import get_settings_service
+
     try:
-        settings = get_organisation_settings_service(db, payload.organisation_id)
+        settings = get_settings_service(db, payload.organisation_id)
         review_threshold = settings.review_threshold
         decline_threshold = settings.decline_threshold
     except Exception:
-        # Defaults if settings not found
         review_threshold = 40
         decline_threshold = 70
 
