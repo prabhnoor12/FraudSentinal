@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 import os
 from typing import Any, Dict, Optional
 
+from database import get_db
+
 from passlib.context import CryptContext
 from secrets import token_urlsafe
 from authlib.jose import jwt

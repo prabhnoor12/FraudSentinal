@@ -16,4 +16,5 @@ ruff
 pwdlib
 email-validator
 python-dotenv
-psycopg 
+pyptop
+qrcode

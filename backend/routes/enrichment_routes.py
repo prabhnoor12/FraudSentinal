@@ -7,7 +7,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from auth import get_current_org_id, get_db
+from auth import get_current_org_id
+from database import get_db
 
 router = APIRouter(prefix="/enrichment", tags=["enrichment"])
 
