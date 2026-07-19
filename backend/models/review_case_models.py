@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, Text
 
@@ -17,11 +17,11 @@ class ReviewCase(Base):
     resolution = Column(String(30), nullable=True, index=True)
     notes = Column(Text, nullable=True)
     case_metadata = Column("metadata", JSON, default=dict, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False, index=True)
     updated_at = Column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
         nullable=False,
     )
     resolved_at = Column(DateTime, nullable=True, index=True)

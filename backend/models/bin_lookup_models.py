@@ -1,6 +1,6 @@
 """BIN (Bank Identification Number) lookup models for signal enrichment."""
 
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
 
@@ -23,5 +23,5 @@ class BINLookup(Base):
     is_prepaid = Column(Boolean, default=False, nullable=False)
     is_commercial = Column(Boolean, default=False, nullable=False)
     risk_score = Column(Integer, default=0, nullable=False)  # Internal risk rating
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)

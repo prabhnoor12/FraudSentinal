@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy.orm import Session
 
@@ -19,7 +19,7 @@ def _build_scoring_snapshot(db: Session, organisation_id: int | None) -> dict:
     )
     
     snapshot = {
-        "captured_at": datetime.utcnow().isoformat(),
+        "captured_at": datetime.now(UTC).isoformat(),
         "organisation_id": organisation_id,
         "rules_version": "v1.0",
         "rules_count": len(effective_rules),

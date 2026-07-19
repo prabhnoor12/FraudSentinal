@@ -3,7 +3,7 @@ import qrcode
 import io
 import base64
 from typing import List, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, UTC
 from sqlalchemy.orm import Session
 from cryptography.fernet import Fernet
 import os
@@ -65,7 +65,7 @@ class MFAService:
         
         user.mfa_secret = encrypted_secret
         user.mfa_enabled = True
-        user.mfa_last_bound_at = datetime.utcnow()
+        user.mfa_last_bound_at = datetime.now(UTC)
         user.mfa_backup_codes_hash = backup_codes_hash
         
         db.add(user)

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy.orm import Session
 
@@ -60,7 +60,7 @@ def update_review_case(db: Session, review_case: ReviewCase, *, commit: bool = T
 def mark_review_case_resolved(db: Session, review_case: ReviewCase, *, resolution: str | None = None) -> ReviewCase:
     review_case.status = "resolved"
     review_case.resolution = resolution
-    review_case.resolved_at = datetime.utcnow()
+    review_case.resolved_at = datetime.now(UTC)
     db.commit()
     db.refresh(review_case)
     return review_case

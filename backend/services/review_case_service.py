@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy.orm import Session
 
@@ -108,7 +108,7 @@ def update_review_case_service(db: Session, case_id: int, payload: ReviewCaseUpd
         effective_resolution = requested_resolution if "resolution" in updates else review_case.resolution
         if effective_resolution is None:
             raise ValidationError("Resolution is required when resolving a review case")
-        updates["resolved_at"] = datetime.utcnow() if review_case.resolved_at is None else review_case.resolved_at
+        updates["resolved_at"] = datetime.now(UTC) if review_case.resolved_at is None else review_case.resolved_at
     elif requested_status is not None:
         updates["resolution"] = None
         updates["resolved_at"] = None
@@ -133,7 +133,7 @@ def resolve_review_case_service(
         "status": ReviewCaseStatus.resolved,
         "resolution": payload.resolution,
         "notes": payload.notes or review_case.notes,
-        "resolved_at": datetime.utcnow(),
+        "resolved_at": datetime.now(UTC),
     }
     if payload.metadata:
         merged_metadata = (review_case.metadata or {}).copy()

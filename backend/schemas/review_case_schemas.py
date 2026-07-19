@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ReviewCaseStatus(str, Enum):
@@ -58,5 +58,4 @@ class ReviewCaseOut(ReviewCaseBase):
     updated_at: datetime
     resolved_at: datetime | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

@@ -5,14 +5,19 @@ Uses `passlib` for password hashing and `authlib` to issue/verify
 OAuth2-style bearer tokens (JWTs). Exposes a FastAPI dependency
 `get_current_user` that returns decoded token claims.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 import os
+import warnings
 from typing import Any, Dict, Optional
 
 from database import get_db
 
 from passlib.context import CryptContext
 from secrets import token_urlsafe
+
+# Suppress Authlib deprecation warning for jose module
+warnings.filterwarnings("ignore", message=".*authlib.jose module is deprecated.*")
+
 from authlib.jose import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -23,7 +28,7 @@ load_dotenv()
 from utils.security_utils import validate_secret_key
 
 # Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
 
 # JWT / token configuration (override via env vars)
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -79,7 +84,7 @@ def create_access_token(subject: str, data: Optional[Dict[str, Any]] = None, exp
 
     `subject` is typically a user identifier (e.g. user id or email).
     """
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     to_encode: Dict[str, Any] = {"sub": subject, "iat": int(now.timestamp())}
     if data:
         to_encode.update(data)
@@ -119,7 +124,7 @@ def decode_access_token(token: str) -> Dict[str, Any]:
             detail="Token missing expiration",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    if datetime.utcfromtimestamp(int(exp)) < datetime.utcnow():
+    if datetime.fromtimestamp(int(exp), UTC) < datetime.now(UTC):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired",

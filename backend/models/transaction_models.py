@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, String
 
@@ -28,4 +28,4 @@ class Transaction(Base):
     transactions_last_24h = Column(Integer, default=0, nullable=False)
     failed_attempts_last_24h = Column(Integer, default=0, nullable=False)
     transaction_metadata = Column("metadata", JSON, default=dict, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False, index=True)

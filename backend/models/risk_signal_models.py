@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, String
 
@@ -18,4 +18,4 @@ class RiskSignal(Base):
     reason_code = Column(String(50), nullable=False, index=True)
     weight = Column(Float, nullable=False)
     details = Column(JSON, default=dict, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False, index=True)

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 
@@ -14,7 +14,7 @@ class TokenBlacklist(Base):
     token = Column(String(500), unique=True, index=True, nullable=False)
     reason = Column(String(255), nullable=True)
     expires_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
 
 
 class RefreshToken(Base):
@@ -27,7 +27,7 @@ class RefreshToken(Base):
     token = Column(String(500), unique=True, index=True, nullable=False)
     revoked = Column(Boolean, default=False, nullable=False)
     expires_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
 
 
 class PasswordResetToken(Base):
@@ -40,4 +40,4 @@ class PasswordResetToken(Base):
     token = Column(String(255), unique=True, index=True, nullable=False)
     used = Column(Boolean, default=False, nullable=False)
     expires_at = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)

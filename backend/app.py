@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 import os
 
@@ -40,7 +41,26 @@ from utils.exception_handling_utils import (
 import models  # noqa: F401
 
 
-app = FastAPI(title="FraudSentinal Backend", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 1. Validate Security Configuration
+    try:
+        validate_secret_key(SECRET_KEY)
+    except ValueError as e:
+        logger.critical(f"CRITICAL SECURITY CONFIGURATION ERROR: {str(e)}")
+        logger.critical("Application startup aborted due to missing or weak SECRET_KEY.")
+        sys.exit(1)
+
+    db = SessionLocal()
+    try:
+        fraud_rule_service.seed_default_fraud_rules(db)
+    finally:
+        db.close()
+    
+    yield
+
+
+app = FastAPI(title="FraudSentinal Backend", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(LoggingMiddleware, exclude_paths={"/health"})
 app.add_middleware(RateLimitMiddleware, calls=120, window_seconds=60, exempt_paths={"/health"})
@@ -74,23 +94,6 @@ import logging
 import sys
 
 logger = logging.getLogger("fraudsentinel.app")
-
-
-@app.on_event("startup")
-def on_startup() -> None:
-    # 1. Validate Security Configuration
-    try:
-        validate_secret_key(SECRET_KEY)
-    except ValueError as e:
-        logger.critical(f"CRITICAL SECURITY CONFIGURATION ERROR: {str(e)}")
-        logger.critical("Application startup aborted due to missing or weak SECRET_KEY.")
-        sys.exit(1)
-
-    db = SessionLocal()
-    try:
-        fraud_rule_service.seed_default_fraud_rules(db)
-    finally:
-        db.close()
 
 
 @app.get("/health")

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy.orm import Session
 
@@ -46,7 +46,7 @@ def list_sessions(db: Session, *, user_id: int | None = None, status: str | None
 
 def end_session(db: Session, session: UserSession) -> UserSession:
     session.status = "ended"
-    session.ended_at = datetime.utcnow()
+    session.ended_at = datetime.now(UTC)
     db.commit()
     db.refresh(session)
     return session

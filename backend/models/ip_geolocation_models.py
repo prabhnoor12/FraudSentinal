@@ -1,6 +1,6 @@
 """IP Geolocation lookup models for signal enrichment."""
 
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy import Column, DateTime, Integer, String
 
@@ -21,5 +21,5 @@ class IPGeolocation(Base):
     latitude = Column(String(20), nullable=True)
     longitude = Column(String(20), nullable=True)
     isp = Column(String(200), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC), nullable=False)

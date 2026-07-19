@@ -4,3 +4,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 fraud_detection.db
+alembic/
+alembic.ini
+alembic_version/

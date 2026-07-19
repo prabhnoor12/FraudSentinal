@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from sqlalchemy import Column, DateTime, Integer, String, JSON, ForeignKey, Index
 from database import Base
 
@@ -24,7 +24,7 @@ class AuditLog(Base):
     ip_address = Column(String(45), nullable=True)
     user_agent = Column(String(255), nullable=True)
     
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False, index=True)
 
     # Indexes for multi-condition query
     __table_args__ = (
@@ -35,4 +35,4 @@ class AuditLog(Base):
     def is_expired(self) -> bool:
         """Check if the log has exceeded the retention period (default 180 days)."""
         retention_days = 180 # Could be configurable
-        return datetime.utcnow() > self.created_at + timedelta(days=retention_days)
+        return datetime.now(UTC) > self.created_at + timedelta(days=retention_days)

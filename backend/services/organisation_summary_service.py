@@ -3,7 +3,7 @@ from sqlalchemy import func
 from models.transaction_models import Transaction
 from models.decision_models import Decision
 from models.review_case_models import ReviewCase, ReviewCaseStatus
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
 class OrganisationSummaryService:
     @staticmethod
@@ -11,7 +11,7 @@ class OrganisationSummaryService:
         """Get a summary of activity for the organisation dashboard."""
         
         # 1. Transaction Stats (Last 30 days)
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
         
         total_transactions = db.query(func.count(Transaction.id)).filter(
             Transaction.organisation_id == organisation_id,

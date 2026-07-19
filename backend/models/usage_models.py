@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
 
@@ -23,7 +23,7 @@ class UsageEvent(Base):
     unit_type = Column(String(50), default="request", nullable=False)
     description = Column(Text, nullable=True)
     status = Column(String(30), default="recorded", nullable=False)
-    recorded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    recorded_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
     billed_at = Column(DateTime, nullable=True)
 
 
@@ -44,4 +44,4 @@ class UsageSummary(Base):
     period_end = Column(DateTime, nullable=False)
     total_units = Column(Float, default=0.0, nullable=False)
     currency = Column(String(10), default="USD", nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)

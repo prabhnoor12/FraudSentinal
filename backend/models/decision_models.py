@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, String
 
@@ -18,4 +18,4 @@ class Decision(Base):
     decision = Column(String(20), nullable=False, index=True)
     reason_codes = Column(JSON, default=list, nullable=False)
     scoring_snapshot = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False, index=True)
