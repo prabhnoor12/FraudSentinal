@@ -11,7 +11,9 @@ def create_settings(db: Session, **data) -> OrganisationSettings:
     return settings
 
 
-def get_settings_by_organisation_id(db: Session, organisation_id: int) -> OrganisationSettings | None:
+def get_settings_by_organisation_id(
+    db: Session, organisation_id: int
+) -> OrganisationSettings | None:
     return (
         db.query(OrganisationSettings)
         .filter(OrganisationSettings.organisation_id == organisation_id)
@@ -19,7 +21,9 @@ def get_settings_by_organisation_id(db: Session, organisation_id: int) -> Organi
     )
 
 
-def update_settings(db: Session, settings: OrganisationSettings, **updates) -> OrganisationSettings:
+def update_settings(
+    db: Session, settings: OrganisationSettings, **updates
+) -> OrganisationSettings:
     for field, value in updates.items():
         if value is not None:
             setattr(settings, field, value)

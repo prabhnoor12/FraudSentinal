@@ -56,10 +56,13 @@ def get_review_case(
     audit_ctx: AuditContext = Depends(get_audit_ctx),
     db: Session = Depends(get_db),
 ):
-    review_case = review_case_service.get_review_case_service(db, case_id, organisation_id=org_id)
-    
+    review_case = review_case_service.get_review_case_service(
+        db, case_id, organisation_id=org_id
+    )
+
     # Log access to review case
     from services.audit_service import AuditService
+
     AuditService.log_resource_access(
         db,
         user_id=audit_ctx.user_id,
@@ -67,9 +70,9 @@ def get_review_case(
         resource_type="review_case",
         resource_id=str(case_id),
         ip_address=audit_ctx.ip_address,
-        user_agent=audit_ctx.user_agent
+        user_agent=audit_ctx.user_agent,
     )
-    
+
     return review_case
 
 
@@ -80,7 +83,9 @@ def update_review_case(
     org_id: int = Depends(get_current_org_id),
     db: Session = Depends(get_db),
 ):
-    return review_case_service.update_review_case_service(db, case_id, payload, organisation_id=org_id)
+    return review_case_service.update_review_case_service(
+        db, case_id, payload, organisation_id=org_id
+    )
 
 
 @router.get("/queue/my", response_model=list[ReviewCaseOut])
@@ -90,7 +95,9 @@ def list_my_queue(
     db: Session = Depends(get_db),
 ):
     """List open review cases for the current organisation (my queue)."""
-    return review_case_service.list_my_queue_service(db, organisation_id=org_id, limit=limit)
+    return review_case_service.list_my_queue_service(
+        db, organisation_id=org_id, limit=limit
+    )
 
 
 @router.post("/{case_id}/resolve", response_model=ReviewCaseOut)

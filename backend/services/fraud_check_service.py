@@ -7,25 +7,32 @@ from sqlalchemy.orm import Session
 from schemas.decision_schemas import DecisionCreate
 from schemas.fraud_check_schemas import FraudCheckRequest, FraudCheckResponse
 from schemas.risk_signal_schemas import RiskSignalCreate
-from services import decision_service, fraud_rule_service, review_case_service, risk_signal_service, scoring_service, transaction_service
+from services import (
+    decision_service,
+    fraud_rule_service,
+    review_case_service,
+    risk_signal_service,
+    scoring_service,
+    transaction_service,
+)
 
 
 def _build_scoring_snapshot(db: Session, organisation_id: int | None) -> dict:
     """Capture the exact rule configuration at decision time."""
     from schemas.fraud_rule_schemas import FraudRuleOperator
-    
+
     effective_rules = fraud_rule_service.list_effective_fraud_rules_service(
         db, organisation_id=organisation_id
     )
-    
+
     snapshot = {
         "captured_at": datetime.now(UTC).isoformat(),
         "organisation_id": organisation_id,
         "rules_version": "v1.0",
         "rules_count": len(effective_rules),
-        "rules": []
+        "rules": [],
     }
-    
+
     for rule in effective_rules:
         rule_data = {
             "id": rule.id,
@@ -34,7 +41,9 @@ def _build_scoring_snapshot(db: Session, organisation_id: int | None) -> dict:
             "reason_code": rule.reason_code,
             "weight": rule.weight,
             "field_name": rule.field_name,
-            "operator": str(rule.operator) if isinstance(rule.operator, FraudRuleOperator) else rule.operator,
+            "operator": str(rule.operator)
+            if isinstance(rule.operator, FraudRuleOperator)
+            else rule.operator,
             "comparison_value": rule.comparison_value,
             "secondary_field_name": rule.secondary_field_name,
             "priority": rule.priority,
@@ -42,7 +51,7 @@ def _build_scoring_snapshot(db: Session, organisation_id: int | None) -> dict:
             "organisation_id": rule.organisation_id,
         }
         snapshot["rules"].append(rule_data)
-    
+
     return snapshot
 
 
@@ -51,11 +60,13 @@ def check_fraud_service(db: Session, payload: FraudCheckRequest) -> FraudCheckRe
     transaction_data = transaction_service.normalize_transaction_data(payload)
 
     try:
-        transaction = transaction_service.create_transaction_record(db, payload, commit=False)
+        transaction = transaction_service.create_transaction_record(
+            db, payload, commit=False
+        )
         db.flush()
 
         scoring_snapshot = _build_scoring_snapshot(db, transaction.organisation_id)
-        
+
         decision = decision_service.create_decision_record(
             db,
             DecisionCreate(
@@ -89,7 +100,11 @@ def check_fraud_service(db: Session, payload: FraudCheckRequest) -> FraudCheckRe
                         "comparison_value": rule.comparison_value,
                         "secondary_field_name": rule.secondary_field_name,
                         "matched_value": transaction_data.get(rule.field_name),
-                        "secondary_value": transaction_data.get(rule.secondary_field_name) if rule.secondary_field_name else None,
+                        "secondary_value": transaction_data.get(
+                            rule.secondary_field_name
+                        )
+                        if rule.secondary_field_name
+                        else None,
                     },
                 ),
                 commit=False,

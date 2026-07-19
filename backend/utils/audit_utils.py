@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -72,10 +71,16 @@ class AuditLogger:
             ip_address=ip_address,
         )
 
-    def log_exception(self, exc: Exception, *, context: Optional[dict[str, Any]] = None) -> None:
+    def log_exception(
+        self, exc: Exception, *, context: Optional[dict[str, Any]] = None
+    ) -> None:
         """Record exception details without exposing sensitive values."""
         if isinstance(exc, AppException):
-            details = {"message": exc.message, "status_code": exc.status_code, **(exc.details or {})}
+            details = {
+                "message": exc.message,
+                "status_code": exc.status_code,
+                **(exc.details or {}),
+            }
             severity = "WARNING"
         else:
             details = {"message": str(exc)}
@@ -89,17 +94,47 @@ class AuditLogger:
             severity=severity,
         )
 
-    def log_user_action(self, *, user_id: str, action: str, details: Optional[dict[str, Any]] = None, **kwargs: Any) -> None:
+    def log_user_action(
+        self,
+        *,
+        user_id: str,
+        action: str,
+        details: Optional[dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> None:
         """Convenience wrapper for user-driven actions."""
-        self.log_event(event_type="user_action", user_id=user_id, action=action, details=details, **kwargs)
+        self.log_event(
+            event_type="user_action",
+            user_id=user_id,
+            action=action,
+            details=details,
+            **kwargs,
+        )
 
-    def log_admin_action(self, *, user_id: str, action: str, details: Optional[dict[str, Any]] = None, **kwargs: Any) -> None:
+    def log_admin_action(
+        self,
+        *,
+        user_id: str,
+        action: str,
+        details: Optional[dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> None:
         """Convenience wrapper for admin-driven actions."""
-        self.log_event(event_type="admin_action", user_id=user_id, action=action, details=details, **kwargs)
+        self.log_event(
+            event_type="admin_action",
+            user_id=user_id,
+            action=action,
+            details=details,
+            **kwargs,
+        )
 
-    def log_system_action(self, *, action: str, details: Optional[dict[str, Any]] = None, **kwargs: Any) -> None:
+    def log_system_action(
+        self, *, action: str, details: Optional[dict[str, Any]] = None, **kwargs: Any
+    ) -> None:
         """Convenience wrapper for system-driven actions."""
-        self.log_event(event_type="system_action", action=action, details=details, **kwargs)
+        self.log_event(
+            event_type="system_action", action=action, details=details, **kwargs
+        )
 
 
 audit_logger = AuditLogger()

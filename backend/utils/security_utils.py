@@ -40,12 +40,22 @@ def hash_value(value: str) -> str:
 
 
 COMMON_WEAK_PASSWORDS = {
-    "password", "password123", "123456", "qwerty", "admin", "welcome",
-    "fraudsentinel", "investigator", "secret", "security"
+    "password",
+    "password123",
+    "123456",
+    "qwerty",
+    "admin",
+    "welcome",
+    "fraudsentinel",
+    "investigator",
+    "secret",
+    "security",
 }
 
 
-def is_strong_password(password: str, user_info: Optional[Mapping[str, str]] = None) -> bool:
+def is_strong_password(
+    password: str, user_info: Optional[Mapping[str, str]] = None
+) -> bool:
     """Validate password strength requirements.
 
     Requirements:
@@ -90,7 +100,9 @@ def validate_secret_key(key: Optional[str]) -> None:
     - Contains mix of upper, lower, digits, and symbols
     """
     if not key:
-        raise ValueError("SECRET_KEY must be provided via environment variables or vault")
+        raise ValueError(
+            "SECRET_KEY must be provided via environment variables or vault"
+        )
 
     if len(key) < 32:
         raise ValueError("SECRET_KEY must be at least 32 characters long")
@@ -98,10 +110,15 @@ def validate_secret_key(key: Optional[str]) -> None:
     has_upper = any(char.isupper() for char in key)
     has_lower = any(char.islower() for char in key)
     has_digit = any(char.isdigit() for char in key)
-    has_symbol = any(char in string.punctuation or char in "!@#$%^&*()_+-=[]{}|;:,.<>?" for char in key)
+    has_symbol = any(
+        char in string.punctuation or char in "!@#$%^&*()_+-=[]{}|;:,.<>?"
+        for char in key
+    )
 
     if not (has_upper and has_lower and has_digit and has_symbol):
-        raise ValueError("SECRET_KEY must contain uppercase, lowercase, numbers, and special symbols")
+        raise ValueError(
+            "SECRET_KEY must contain uppercase, lowercase, numbers, and special symbols"
+        )
 
 
 def validate_email(email: str) -> bool:
@@ -152,7 +169,9 @@ def mask_sensitive_data(value: Optional[str], *, keep: int = 4) -> Optional[str]
     return f"{value[:keep]}{'*' * (len(value) - keep * 2)}{value[-keep:]}"
 
 
-def redact_sensitive_fields(data: Mapping[str, Any], *, keys: Optional[set[str]] = None) -> dict[str, Any]:
+def redact_sensitive_fields(
+    data: Mapping[str, Any], *, keys: Optional[set[str]] = None
+) -> dict[str, Any]:
     """Return a copy of a mapping with sensitive values redacted."""
     sensitive_keys = keys or {"password", "token", "secret", "api_key", "authorization"}
     redacted: dict[str, Any] = {}
@@ -163,7 +182,9 @@ def redact_sensitive_fields(data: Mapping[str, Any], *, keys: Optional[set[str]]
             redacted[key] = redact_sensitive_fields(value, keys=sensitive_keys)
         elif isinstance(value, list):
             redacted[key] = [
-                redact_sensitive_fields(item, keys=sensitive_keys) if isinstance(item, dict) else item
+                redact_sensitive_fields(item, keys=sensitive_keys)
+                if isinstance(item, dict)
+                else item
                 for item in value
             ]
         else:

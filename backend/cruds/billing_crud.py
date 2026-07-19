@@ -15,14 +15,18 @@ def get_billing_plan_by_id(db: Session, billing_plan_id: int) -> BillingPlan | N
     return db.query(BillingPlan).filter(BillingPlan.id == billing_plan_id).first()
 
 
-def list_billing_plans(db: Session, *, organisation_id: int | None = None) -> list[BillingPlan]:
+def list_billing_plans(
+    db: Session, *, organisation_id: int | None = None
+) -> list[BillingPlan]:
     query = db.query(BillingPlan)
     if organisation_id is not None:
         query = query.filter(BillingPlan.organisation_id == organisation_id)
     return query.order_by(BillingPlan.created_at.desc()).all()
 
 
-def update_billing_plan(db: Session, billing_plan: BillingPlan, **updates) -> BillingPlan:
+def update_billing_plan(
+    db: Session, billing_plan: BillingPlan, **updates
+) -> BillingPlan:
     for field, value in updates.items():
         if value is not None:
             setattr(billing_plan, field, value)

@@ -22,7 +22,9 @@ def require_auth(
     return auth_service.get_authenticated_user_from_token(db, token)
 
 
-@router.get("/events", response_model=list[UsageEventOut], dependencies=[Depends(require_auth)])
+@router.get(
+    "/events", response_model=list[UsageEventOut], dependencies=[Depends(require_auth)]
+)
 def list_usage_events(
     user_id: int | None = None,
     organisation_id: int | None = None,
@@ -35,12 +37,21 @@ def list_usage_events(
     )
 
 
-@router.post("/events", response_model=UsageEventOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_auth)])
+@router.post(
+    "/events",
+    response_model=UsageEventOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_auth)],
+)
 def create_usage_event(payload: UsageEventCreate, db: Session = Depends(get_db)):
     return usage_service.create_usage_event_service(db, payload)
 
 
-@router.get("/summaries", response_model=list[UsageSummaryOut], dependencies=[Depends(require_auth)])
+@router.get(
+    "/summaries",
+    response_model=list[UsageSummaryOut],
+    dependencies=[Depends(require_auth)],
+)
 def list_usage_summaries(
     user_id: int | None = None,
     organisation_id: int | None = None,
@@ -53,6 +64,11 @@ def list_usage_summaries(
     )
 
 
-@router.post("/summaries", response_model=UsageSummaryOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_auth)])
+@router.post(
+    "/summaries",
+    response_model=UsageSummaryOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_auth)],
+)
 def create_usage_summary(payload: UsageSummaryCreate, db: Session = Depends(get_db)):
     return usage_service.create_usage_summary_service(db, payload)

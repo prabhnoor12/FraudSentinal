@@ -32,10 +32,14 @@ def get_session_by_id(db: Session, session_id: int) -> UserSession | None:
 
 
 def get_session_by_token(db: Session, session_token: str) -> UserSession | None:
-    return db.query(UserSession).filter(UserSession.session_token == session_token).first()
+    return (
+        db.query(UserSession).filter(UserSession.session_token == session_token).first()
+    )
 
 
-def list_sessions(db: Session, *, user_id: int | None = None, status: str | None = None) -> list[UserSession]:
+def list_sessions(
+    db: Session, *, user_id: int | None = None, status: str | None = None
+) -> list[UserSession]:
     query = db.query(UserSession)
     if user_id is not None:
         query = query.filter(UserSession.user_id == user_id)

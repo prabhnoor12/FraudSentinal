@@ -12,7 +12,9 @@ class Transaction(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    organisation_id = Column(Integer, ForeignKey("organisations.id"), nullable=False, index=True)
+    organisation_id = Column(
+        Integer, ForeignKey("organisations.id"), nullable=False, index=True
+    )
     external_transaction_id = Column(String(100), nullable=True, index=True)
     amount = Column(Float, nullable=False)
     currency = Column(String(3), nullable=False, index=True)
@@ -28,4 +30,6 @@ class Transaction(Base):
     transactions_last_24h = Column(Integer, default=0, nullable=False)
     failed_attempts_last_24h = Column(Integer, default=0, nullable=False)
     transaction_metadata = Column("metadata", JSON, default=dict, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False, index=True)
+    created_at = Column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False, index=True
+    )

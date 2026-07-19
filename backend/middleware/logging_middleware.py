@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import json
 import logging
 import time
 from typing import Any, Callable, Optional, Set
-from urllib.parse import urlparse
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -36,7 +34,9 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         self.exclude_paths = set(exclude_paths or ())
         self.exclude_prefixes = exclude_prefixes or ()
 
-    async def dispatch(self, request: Request, call_next: Callable[[Request], Any]) -> Response:
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Any]
+    ) -> Response:
         start_time = time.perf_counter()
         request_id = self._get_request_id(request)
 
@@ -52,7 +52,9 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 "query_params": dict(request.query_params),
                 "client_ip": self._get_client_ip(request),
                 "user_agent": request.headers.get("user-agent"),
-                "headers": self._sanitize_headers(request.headers) if self.log_headers else None,
+                "headers": self._sanitize_headers(request.headers)
+                if self.log_headers
+                else None,
             },
         )
 
@@ -68,7 +70,9 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                     "status_code": response.status_code,
                     "duration_ms": duration_ms,
                     "client_ip": self._get_client_ip(request),
-                    "response_headers": self._sanitize_headers(dict(response.headers)) if self.log_headers else None,
+                    "response_headers": self._sanitize_headers(dict(response.headers))
+                    if self.log_headers
+                    else None,
                 },
             )
             return response
@@ -94,7 +98,9 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         return any(path.startswith(prefix) for prefix in self.exclude_prefixes)
 
     def _get_request_id(self, request: Request) -> str:
-        request_id = request.headers.get("x-request-id") or request.headers.get("x-correlation-id")
+        request_id = request.headers.get("x-request-id") or request.headers.get(
+            "x-correlation-id"
+        )
         if request_id:
             return request_id
         return f"req-{int(time.time() * 1000000)}"

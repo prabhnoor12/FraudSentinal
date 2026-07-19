@@ -7,16 +7,19 @@ from models.ip_geolocation_models import IPGeolocation
 
 def get_geolocation_by_ip(db: Session, ip_address: str) -> IPGeolocation | None:
     """Get geolocation data for an IP address.
-    
+
     For IPv4, does a simple range check.
     For production, this should use integer IP representation for accurate range queries.
     """
     # Simple exact match for now
     # In production, convert IP to integer and do: ip_start_int <= ip_int <= ip_end_int
-    return db.query(IPGeolocation).filter(
-        IPGeolocation.ip_start <= ip_address,
-        IPGeolocation.ip_end >= ip_address
-    ).first()
+    return (
+        db.query(IPGeolocation)
+        .filter(
+            IPGeolocation.ip_start <= ip_address, IPGeolocation.ip_end >= ip_address
+        )
+        .first()
+    )
 
 
 def create_ip_geolocation(

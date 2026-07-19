@@ -41,7 +41,9 @@ def list_fraud_rules(
         query = query.filter(FraudRule.organisation_id == organisation_id)
     if enabled is not None:
         query = query.filter(FraudRule.enabled == enabled)
-    return query.order_by(FraudRule.priority.asc(), FraudRule.id.asc()).limit(limit).all()
+    return (
+        query.order_by(FraudRule.priority.asc(), FraudRule.id.asc()).limit(limit).all()
+    )
 
 
 def list_effective_fraud_rules(
@@ -59,7 +61,8 @@ def list_effective_fraud_rules(
 
     rules = (
         query.filter(
-            (FraudRule.organisation_id.is_(None)) | (FraudRule.organisation_id == organisation_id)
+            (FraudRule.organisation_id.is_(None))
+            | (FraudRule.organisation_id == organisation_id)
         )
         .order_by(FraudRule.priority.asc(), FraudRule.id.asc())
         .all()

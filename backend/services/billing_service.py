@@ -37,4 +37,6 @@ def list_billing_records_service(
     user_id: int | None = None,
     organisation_id: int | None = None,
 ):
-    return billing_crud.list_billing_records(db, user_id=user_id, organisation_id=organisation_id)
+    return billing_crud.list_billing_records(
+        db, user_id=user_id, organisation_id=organisation_id
+    )

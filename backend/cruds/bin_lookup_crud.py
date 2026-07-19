@@ -36,7 +36,7 @@ def create_bin_lookup(
     """Create a new BIN lookup entry."""
     # Normalize to 6 digits
     normalized_bin = bin_number[:6] if len(bin_number) >= 6 else bin_number
-    
+
     bin_entry = BINLookup(
         bin_number=normalized_bin,
         card_brand=card_brand,
@@ -71,8 +71,13 @@ def list_bin_lookups(
     return query.limit(limit).all()
 
 
-def get_high_risk_bins(db: Session, min_risk_score: int = 50, limit: int = 100) -> list[BINLookup]:
+def get_high_risk_bins(
+    db: Session, min_risk_score: int = 50, limit: int = 100
+) -> list[BINLookup]:
     """Get BIN entries with elevated risk scores."""
-    return db.query(BINLookup).filter(
-        BINLookup.risk_score >= min_risk_score
-    ).limit(limit).all()
+    return (
+        db.query(BINLookup)
+        .filter(BINLookup.risk_score >= min_risk_score)
+        .limit(limit)
+        .all()
+    )

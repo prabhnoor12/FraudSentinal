@@ -45,7 +45,9 @@ def list_review_cases(
     return query.order_by(ReviewCase.created_at.desc()).limit(limit).all()
 
 
-def update_review_case(db: Session, review_case: ReviewCase, *, commit: bool = True, **updates) -> ReviewCase:
+def update_review_case(
+    db: Session, review_case: ReviewCase, *, commit: bool = True, **updates
+) -> ReviewCase:
     payload = dict(updates)
     if "metadata" in payload:
         payload["case_metadata"] = payload.pop("metadata")
@@ -57,7 +59,9 @@ def update_review_case(db: Session, review_case: ReviewCase, *, commit: bool = T
     return review_case
 
 
-def mark_review_case_resolved(db: Session, review_case: ReviewCase, *, resolution: str | None = None) -> ReviewCase:
+def mark_review_case_resolved(
+    db: Session, review_case: ReviewCase, *, resolution: str | None = None
+) -> ReviewCase:
     review_case.status = "resolved"
     review_case.resolution = resolution
     review_case.resolved_at = datetime.now(UTC)

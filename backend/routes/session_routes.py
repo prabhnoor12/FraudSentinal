@@ -23,19 +23,30 @@ def list_sessions(
     status_filter: str | None = None,
     db: Session = Depends(get_db),
 ):
-    return session_service.list_sessions_service(db, user_id=user_id, status=status_filter)
+    return session_service.list_sessions_service(
+        db, user_id=user_id, status=status_filter
+    )
 
 
-@router.post("", response_model=SessionOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_auth)])
+@router.post(
+    "",
+    response_model=SessionOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_auth)],
+)
 def create_session(payload: SessionCreate, db: Session = Depends(get_db)):
     return session_service.create_session_service(db, payload)
 
 
-@router.get("/{session_id}", response_model=SessionOut, dependencies=[Depends(require_auth)])
+@router.get(
+    "/{session_id}", response_model=SessionOut, dependencies=[Depends(require_auth)]
+)
 def get_session(session_id: int, db: Session = Depends(get_db)):
     return session_service.get_session_service(db, session_id)
 
 
-@router.post("/{session_id}/end", response_model=SessionOut, dependencies=[Depends(require_auth)])
+@router.post(
+    "/{session_id}/end", response_model=SessionOut, dependencies=[Depends(require_auth)]
+)
 def end_session(session_id: int, db: Session = Depends(get_db)):
     return session_service.end_session_service(db, session_id)

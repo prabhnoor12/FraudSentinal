@@ -1,6 +1,16 @@
 from datetime import datetime, UTC
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 
 from database import Base
 
@@ -14,7 +24,9 @@ class FraudRule(Base):
     name = Column(String(100), nullable=False)
     rule_code = Column(String(100), nullable=False, index=True)
     description = Column(Text, nullable=True)
-    organisation_id = Column(Integer, ForeignKey("organisations.id"), nullable=True, index=True)
+    organisation_id = Column(
+        Integer, ForeignKey("organisations.id"), nullable=True, index=True
+    )
     reason_code = Column(String(50), nullable=False, index=True)
     weight = Column(Float, nullable=False)
     field_name = Column(String(100), nullable=False, index=True)

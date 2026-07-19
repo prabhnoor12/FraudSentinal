@@ -25,11 +25,15 @@ def get_organisation_by_slug(db: Session, slug: str) -> Organisation | None:
     return db.query(Organisation).filter(Organisation.slug == slug).first()
 
 
-def list_organisations(db: Session, *, skip: int = 0, limit: int = 100) -> list[Organisation]:
+def list_organisations(
+    db: Session, *, skip: int = 0, limit: int = 100
+) -> list[Organisation]:
     return db.query(Organisation).offset(skip).limit(limit).all()
 
 
-def update_organisation(db: Session, organisation: Organisation, **updates) -> Organisation:
+def update_organisation(
+    db: Session, organisation: Organisation, **updates
+) -> Organisation:
     for field, value in updates.items():
         if value is not None:
             setattr(organisation, field, value)

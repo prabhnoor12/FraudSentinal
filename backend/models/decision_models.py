@@ -11,11 +11,17 @@ class Decision(Base):
     __tablename__ = "decisions"
 
     id = Column(Integer, primary_key=True, index=True)
-    transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=False, index=True)
+    transaction_id = Column(
+        Integer, ForeignKey("transactions.id"), nullable=False, index=True
+    )
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    organisation_id = Column(Integer, ForeignKey("organisations.id"), nullable=False, index=True)
+    organisation_id = Column(
+        Integer, ForeignKey("organisations.id"), nullable=False, index=True
+    )
     risk_score = Column(Float, nullable=False, index=True)
     decision = Column(String(20), nullable=False, index=True)
     reason_codes = Column(JSON, default=list, nullable=False)
     scoring_snapshot = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False, index=True)
+    created_at = Column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False, index=True
+    )

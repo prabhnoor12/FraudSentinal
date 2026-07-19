@@ -3,7 +3,11 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_org_id, oauth2_scheme
 from database import get_db
-from schemas.organisation_schemas import OrganisationCreate, OrganisationOut, OrganisationUpdate
+from schemas.organisation_schemas import (
+    OrganisationCreate,
+    OrganisationOut,
+    OrganisationUpdate,
+)
 from services import auth_service, organisation_service, organisation_summary_service
 
 
@@ -35,10 +39,19 @@ def get_organisation_summary(
     db: Session = Depends(get_db),
 ):
     """Get a summary of activity for the organisation dashboard."""
-    return organisation_summary_service.OrganisationSummaryService.get_dashboard_summary(db, organisation_id=org_id)
+    return (
+        organisation_summary_service.OrganisationSummaryService.get_dashboard_summary(
+            db, organisation_id=org_id
+        )
+    )
 
 
-@router.post("", response_model=OrganisationOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_auth)])
+@router.post(
+    "",
+    response_model=OrganisationOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_auth)],
+)
 def create_organisation(payload: OrganisationCreate, db: Session = Depends(get_db)):
     # Creation is still allowed for now, but usually restricted to system admins
     return organisation_service.create_organisation_service(db, payload)
@@ -52,7 +65,10 @@ def get_organisation(
 ):
     if organisation_id != org_id:
         from fastapi import HTTPException
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organisation not found")
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Organisation not found"
+        )
     return organisation_service.get_organisation_service(db, organisation_id)
 
 
@@ -65,8 +81,13 @@ def update_organisation(
 ):
     if organisation_id != org_id:
         from fastapi import HTTPException
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organisation not found")
-    return organisation_service.update_organisation_service(db, organisation_id, payload)
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Organisation not found"
+        )
+    return organisation_service.update_organisation_service(
+        db, organisation_id, payload
+    )
 
 
 @router.delete("/{organisation_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -77,6 +98,9 @@ def delete_organisation(
 ):
     if organisation_id != org_id:
         from fastapi import HTTPException
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organisation not found")
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Organisation not found"
+        )
     organisation_service.delete_organisation_service(db, organisation_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

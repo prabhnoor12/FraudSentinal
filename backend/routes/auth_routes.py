@@ -26,7 +26,9 @@ def get_authenticated_user(
     return auth_service.get_authenticated_user_from_token(db, token)
 
 
-@router.post("/register", response_model=AuthUserOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register", response_model=AuthUserOut, status_code=status.HTTP_201_CREATED
+)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     return auth_service.register_user(db, payload)
 
@@ -42,8 +44,9 @@ def mfa_login(payload: MFALoginRequest, db: Session = Depends(get_db)):
     claims = auth_service.decode_access_token(payload.pre_auth_token)
     if not claims.get("mfa_pending"):
         from utils.exception_handling_utils import UnauthorizedError
+
         raise UnauthorizedError("Invalid pre-authentication token")
-        
+
     user_id = int(claims["sub"])
     return auth_service.verify_mfa_login(db, user_id, payload.code)
 
@@ -69,10 +72,14 @@ def me(current_user=Depends(get_authenticated_user)):
 
 
 @router.post("/password-reset/request")
-def request_password_reset(payload: PasswordResetRequest, db: Session = Depends(get_db)):
+def request_password_reset(
+    payload: PasswordResetRequest, db: Session = Depends(get_db)
+):
     return auth_service.request_password_reset(db, payload)
 
 
 @router.post("/password-reset/confirm")
-def confirm_password_reset(payload: PasswordResetConfirm, db: Session = Depends(get_db)):
+def confirm_password_reset(
+    payload: PasswordResetConfirm, db: Session = Depends(get_db)
+):
     return auth_service.confirm_password_reset(db, payload)

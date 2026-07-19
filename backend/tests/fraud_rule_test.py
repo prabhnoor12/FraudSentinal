@@ -1,6 +1,5 @@
 import uuid
 
-import pytest
 from fastapi import status
 
 from cruds import fraud_rule_crud
@@ -9,7 +8,9 @@ from schemas.fraud_rule_schemas import FraudRuleField, FraudRuleOperator
 from services import fraud_rule_service
 
 
-def _register_and_login(client, *, email: str, password: str, organisation_name: str | None):
+def _register_and_login(
+    client, *, email: str, password: str, organisation_name: str | None
+):
     payload = {"email": email, "password": password}
     if organisation_name is not None:
         payload["organisation_name"] = organisation_name
@@ -112,14 +113,18 @@ def test_create_fraud_rule_duplicate_rule_code_conflict(client):
 
     r1 = client.post(
         "/fraud-rules",
-        json=_rule_payload(rule_code="dupe_code", reason_code=ReasonCode.velocity_spike),
+        json=_rule_payload(
+            rule_code="dupe_code", reason_code=ReasonCode.velocity_spike
+        ),
         headers={"Authorization": f"Bearer {token}"},
     )
     assert r1.status_code == status.HTTP_201_CREATED
 
     r2 = client.post(
         "/fraud-rules",
-        json=_rule_payload(rule_code="dupe_code", reason_code=ReasonCode.velocity_spike),
+        json=_rule_payload(
+            rule_code="dupe_code", reason_code=ReasonCode.velocity_spike
+        ),
         headers={"Authorization": f"Bearer {token}"},
     )
     assert r2.status_code == status.HTTP_409_CONFLICT
@@ -144,7 +149,9 @@ def test_tenant_isolation_get_and_list(client):
 
     create = client.post(
         "/fraud-rules",
-        json=_rule_payload(rule_code="only_org_a", reason_code=ReasonCode.velocity_spike),
+        json=_rule_payload(
+            rule_code="only_org_a", reason_code=ReasonCode.velocity_spike
+        ),
         headers={"Authorization": f"Bearer {token_a}"},
     )
     assert create.status_code == status.HTTP_201_CREATED
@@ -175,7 +182,9 @@ def test_enable_disable_and_enabled_filter(client):
 
     created = client.post(
         "/fraud-rules",
-        json=_rule_payload(rule_code="toggle_rule", reason_code=ReasonCode.velocity_spike),
+        json=_rule_payload(
+            rule_code="toggle_rule", reason_code=ReasonCode.velocity_spike
+        ),
         headers={"Authorization": f"Bearer {token}"},
     )
     assert created.status_code == status.HTTP_201_CREATED
@@ -234,7 +243,9 @@ def test_update_rule_normalizes_rule_code_and_preserves_tenant(client):
 
 def test_cannot_disable_global_rule_from_tenant(client, db):
     fraud_rule_service.seed_default_fraud_rules(db)
-    global_rule = fraud_rule_crud.get_fraud_rule_by_code(db, rule_code="velocity_spike_3", organisation_id=None)
+    global_rule = fraud_rule_crud.get_fraud_rule_by_code(
+        db, rule_code="velocity_spike_3", organisation_id=None
+    )
     assert global_rule is not None
 
     suffix = uuid.uuid4().hex[:10]
@@ -272,7 +283,9 @@ def test_effective_rules_prefer_org_override(db):
     }
     fraud_rule_crud.create_fraud_rule(db, **payload)
 
-    effective = fraud_rule_service.list_effective_fraud_rules_service(db, organisation_id=org_id)
+    effective = fraud_rule_service.list_effective_fraud_rules_service(
+        db, organisation_id=org_id
+    )
     by_code = {r.rule_code: r for r in effective}
     assert "velocity_spike_3" in by_code
     assert by_code["velocity_spike_3"].organisation_id == org_id

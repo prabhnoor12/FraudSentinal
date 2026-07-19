@@ -58,8 +58,12 @@ def mock_mfa_service():
     """
     Mocks the MFAService to bypass actual MFA checks during tests.
     """
-    with mock.patch("services.mfa_service.MFAService.verify_code", return_value=True), \
-         mock.patch("services.mfa_service.MFAService.verify_backup_code", return_value=True):
+    with (
+        mock.patch("services.mfa_service.MFAService.verify_code", return_value=True),
+        mock.patch(
+            "services.mfa_service.MFAService.verify_backup_code", return_value=True
+        ),
+    ):
         yield
 
 

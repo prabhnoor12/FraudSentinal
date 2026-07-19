@@ -8,9 +8,14 @@ from utils.exception_handling_utils import NotFoundError, ValidationError
 def create_usage_limit_service(db: Session, payload: UsageLimitCreate):
     if payload.user_id is None and payload.organisation_id is None:
         raise ValidationError("A usage limit must target a user or organisation")
-    if payload.user_id is not None and not user_crud.get_user_by_id(db, payload.user_id):
+    if payload.user_id is not None and not user_crud.get_user_by_id(
+        db, payload.user_id
+    ):
         raise NotFoundError("User not found")
-    if payload.organisation_id is not None and not organisation_crud.get_organisation_by_id(db, payload.organisation_id):
+    if (
+        payload.organisation_id is not None
+        and not organisation_crud.get_organisation_by_id(db, payload.organisation_id)
+    ):
         raise NotFoundError("Organisation not found")
     return limit_tracking_crud.create_usage_limit(db, **payload.model_dump())
 
@@ -38,4 +43,6 @@ def create_limit_usage_record_service(db: Session, payload: LimitUsageRecordCrea
 
 
 def list_limit_usage_records_service(db: Session, *, usage_limit_id: int | None = None):
-    return limit_tracking_crud.list_limit_usage_records(db, usage_limit_id=usage_limit_id)
+    return limit_tracking_crud.list_limit_usage_records(
+        db, usage_limit_id=usage_limit_id
+    )

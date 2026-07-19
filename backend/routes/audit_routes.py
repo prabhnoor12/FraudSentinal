@@ -1,13 +1,13 @@
-from typing import List, Optional
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
 from sqlalchemy.orm import Session
 
 from auth import get_current_org_id, oauth2_scheme
 from database import get_db
 from services import auth_service, audit_service
-from schemas.audit_schemas import AuditContext
 
 router = APIRouter(prefix="/audit", tags=["audit"])
+
 
 def require_admin(
     token: str = Depends(oauth2_scheme),
@@ -18,9 +18,10 @@ def require_admin(
     if user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Secondary permission check failed: Admin role required for audit access"
+            detail="Secondary permission check failed: Admin role required for audit access",
         )
     return user
+
 
 @router.get("", dependencies=[Depends(require_admin)])
 def list_audit_logs(
@@ -44,8 +45,9 @@ def list_audit_logs(
         start_date=start_date,
         end_date=end_date,
         limit=limit,
-        offset=offset
+        offset=offset,
     )
+
 
 @router.get("/stats", dependencies=[Depends(require_admin)])
 def get_audit_stats(
@@ -54,6 +56,7 @@ def get_audit_stats(
 ):
     """Get aggregate statistics for audit logs."""
     return audit_service.AuditService.get_stats(db, organisation_id=org_id)
+
 
 @router.get("/export", dependencies=[Depends(require_admin)])
 def export_audit_logs(
@@ -65,5 +68,7 @@ def export_audit_logs(
     return Response(
         content=csv_content,
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=audit_logs_{org_id}.csv"}
+        headers={
+            "Content-Disposition": f"attachment; filename=audit_logs_{org_id}.csv"
+        },
     )

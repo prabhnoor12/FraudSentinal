@@ -52,19 +52,21 @@ def _matches_rule(rule, transaction_data: dict) -> bool:
 def score_transaction(db: Session, payload: TransactionCreate) -> dict:
     # Get enrichment data if IP or card number present
     from services.enrichment_service import get_enriched_transaction_data
-    
+
     enrichment_data = get_enriched_transaction_data(
         db,
-        ip_address=payload.ip_address if hasattr(payload, 'ip_address') else None,
-        card_number=payload.card_number if hasattr(payload, 'card_number') else None,
-        billing_country=payload.billing_country if hasattr(payload, 'billing_country') else None,
+        ip_address=payload.ip_address if hasattr(payload, "ip_address") else None,
+        card_number=payload.card_number if hasattr(payload, "card_number") else None,
+        billing_country=payload.billing_country
+        if hasattr(payload, "billing_country")
+        else None,
     )
-    
+
     # Merge enrichment data with transaction data for rule evaluation
     transaction_data = transaction_service.normalize_transaction_data_with_enrichment(
         payload, enrichment_data
     )
-    
+
     effective_rules = fraud_rule_service.list_effective_fraud_rules_service(
         db,
         organisation_id=payload.organisation_id,

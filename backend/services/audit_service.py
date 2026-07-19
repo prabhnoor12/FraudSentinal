@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from cruds import audit_crud
 from models.audit_models import AuditLog
 
+
 class AuditService:
     @staticmethod
     def log_rule_change(
@@ -28,7 +29,7 @@ class AuditService:
             old_value=old_value,
             new_value=new_value,
             ip_address=ip_address,
-            user_agent=user_agent
+            user_agent=user_agent,
         )
 
     @staticmethod
@@ -53,7 +54,7 @@ class AuditService:
             resource_id=str(case_id),
             details={"notes": notes},
             ip_address=ip_address,
-            user_agent=user_agent
+            user_agent=user_agent,
         )
 
     @staticmethod
@@ -76,15 +77,11 @@ class AuditService:
             resource_type=resource_type,
             resource_id=resource_id,
             ip_address=ip_address,
-            user_agent=user_agent
+            user_agent=user_agent,
         )
 
     @staticmethod
-    def list_logs(
-        db: Session,
-        organisation_id: int,
-        **kwargs
-    ):
+    def list_logs(db: Session, organisation_id: int, **kwargs):
         # Tenant isolation is enforced here
         return audit_crud.list_audit_logs(db, organisation_id=organisation_id, **kwargs)
 
@@ -96,23 +93,38 @@ class AuditService:
     def export_logs_csv(db: Session, organisation_id: int, **kwargs) -> str:
         import csv
         import io
-        
-        logs = audit_crud.list_audit_logs(db, organisation_id=organisation_id, limit=1000, **kwargs)
-        
+
+        logs = audit_crud.list_audit_logs(
+            db, organisation_id=organisation_id, limit=1000, **kwargs
+        )
+
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["ID", "Timestamp", "User ID", "Event Type", "Action", "Resource Type", "Resource ID", "IP Address"])
-        
+        writer.writerow(
+            [
+                "ID",
+                "Timestamp",
+                "User ID",
+                "Event Type",
+                "Action",
+                "Resource Type",
+                "Resource ID",
+                "IP Address",
+            ]
+        )
+
         for log in logs:
-            writer.writerow([
-                log.id,
-                log.created_at.isoformat(),
-                log.user_id,
-                log.event_type,
-                log.action,
-                log.resource_type,
-                log.resource_id,
-                log.ip_address
-            ])
-            
+            writer.writerow(
+                [
+                    log.id,
+                    log.created_at.isoformat(),
+                    log.user_id,
+                    log.event_type,
+                    log.action,
+                    log.resource_type,
+                    log.resource_id,
+                    log.ip_address,
+                ]
+            )
+
         return output.getvalue()

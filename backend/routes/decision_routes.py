@@ -40,4 +40,6 @@ def get_decision(
     org_id: int = Depends(get_current_org_id),
     db: Session = Depends(get_db),
 ):
-    return decision_service.get_decision_service(db, decision_id, organisation_id=org_id)
+    return decision_service.get_decision_service(
+        db, decision_id, organisation_id=org_id
+    )

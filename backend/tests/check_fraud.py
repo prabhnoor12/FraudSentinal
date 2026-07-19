@@ -5,7 +5,9 @@ from schemas.decision_schemas import ReasonCode
 from services import fraud_check_service, fraud_rule_service
 
 
-def _register_and_login(client, *, email: str, password: str, organisation_name: str | None):
+def _register_and_login(
+    client, *, email: str, password: str, organisation_name: str | None
+):
     payload = {"email": email, "password": password}
     if organisation_name is not None:
         payload["organisation_name"] = organisation_name
@@ -44,7 +46,9 @@ def test_check_fraud_requires_user_assigned_to_org(client):
     email = f"noorg_{suffix}@example.com"
     password = "StrongPass123!"
 
-    token, me = _register_and_login(client, email=email, password=password, organisation_name=None)
+    token, me = _register_and_login(
+        client, email=email, password=password, organisation_name=None
+    )
     assert me["organisation_id"] is None
 
     resp = client.post(
@@ -68,11 +72,15 @@ def test_check_fraud_velocity_spike_enforces_org_and_creates_risk_signals(client
     suffix_a = uuid.uuid4().hex[:10]
     email_a = f"velocity_a_{suffix_a}@example.com"
     password = "StrongPass123!"
-    token_a, me_a = _register_and_login(client, email=email_a, password=password, organisation_name=f"OrgA_{suffix_a}")
+    token_a, me_a = _register_and_login(
+        client, email=email_a, password=password, organisation_name=f"OrgA_{suffix_a}"
+    )
 
     suffix_b = uuid.uuid4().hex[:10]
     email_b = f"velocity_b_{suffix_b}@example.com"
-    token_b, me_b = _register_and_login(client, email=email_b, password=password, organisation_name=f"OrgB_{suffix_b}")
+    token_b, me_b = _register_and_login(
+        client, email=email_b, password=password, organisation_name=f"OrgB_{suffix_b}"
+    )
 
     resp = client.post(
         "/check-fraud",
@@ -99,15 +107,23 @@ def test_check_fraud_velocity_spike_enforces_org_and_creates_risk_signals(client
 
     tx_id = body["transaction_id"]
 
-    tx_a = client.get(f"/transactions/{tx_id}", headers={"Authorization": f"Bearer {token_a}"})
+    tx_a = client.get(
+        f"/transactions/{tx_id}", headers={"Authorization": f"Bearer {token_a}"}
+    )
     assert tx_a.status_code == 200
 
-    tx_b = client.get(f"/transactions/{tx_id}", headers={"Authorization": f"Bearer {token_b}"})
+    tx_b = client.get(
+        f"/transactions/{tx_id}", headers={"Authorization": f"Bearer {token_b}"}
+    )
     assert tx_b.status_code == 404
 
     signals = risk_signal_crud.list_risk_signals(db, transaction_id=tx_id, limit=50)
     assert len(signals) == 3
-    assert {s.rule_code for s in signals} == {"velocity_spike_3", "velocity_spike_5", "velocity_spike_10"}
+    assert {s.rule_code for s in signals} == {
+        "velocity_spike_3",
+        "velocity_spike_5",
+        "velocity_spike_10",
+    }
     assert {s.reason_code for s in signals} == {ReasonCode.velocity_spike.value}
 
 
@@ -117,7 +133,9 @@ def test_check_fraud_low_signal_profile_when_no_rules_match(client, db):
     suffix = uuid.uuid4().hex[:10]
     email = f"low_signal_{suffix}@example.com"
     password = "StrongPass123!"
-    token, me = _register_and_login(client, email=email, password=password, organisation_name=f"Org_{suffix}")
+    token, me = _register_and_login(
+        client, email=email, password=password, organisation_name=f"Org_{suffix}"
+    )
 
     resp = client.post(
         "/check-fraud",

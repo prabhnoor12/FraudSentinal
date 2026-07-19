@@ -3,7 +3,13 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from auth import create_access_token, decode_access_token, generate_secure_token, hash_password, verify_and_update
+from auth import (
+    create_access_token,
+    decode_access_token,
+    generate_secure_token,
+    hash_password,
+    verify_and_update,
+)
 from cruds import auth_crud, user_crud, organisation_crud
 from schemas.auth_schemas import (
     LoginRequest,
@@ -11,7 +17,12 @@ from schemas.auth_schemas import (
     PasswordResetRequest,
     RegisterRequest,
 )
-from utils.exception_handling_utils import ConflictError, NotFoundError, UnauthorizedError, ValidationError
+from utils.exception_handling_utils import (
+    ConflictError,
+    NotFoundError,
+    UnauthorizedError,
+    ValidationError,
+)
 from utils.security_utils import is_strong_password, normalize_email
 from utils.testing_utils import is_testing
 
@@ -21,8 +32,7 @@ PASSWORD_RESET_EXPIRE_MINUTES = 30
 
 def _build_token_pair(db: Session, user) -> dict[str, str]:
     access_token = create_access_token(
-        subject=str(user.id),
-        data={"email": user.email, "org_id": user.organisation_id}
+        subject=str(user.id), data={"email": user.email, "org_id": user.organisation_id}
     )
     refresh_token_value = generate_secure_token(32)
     refresh_expires_at = datetime.now(UTC) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
@@ -44,8 +54,10 @@ def register_user(db: Session, payload: RegisterRequest):
     if user_crud.get_user_by_email(db, email):
         raise ConflictError("User with this email already exists")
     if not is_strong_password(payload.password):
-        raise ValidationError("Password must be at least 12 characters and include upper, lower, digit, and symbol")
-    
+        raise ValidationError(
+            "Password must be at least 12 characters and include upper, lower, digit, and symbol"
+        )
+
     # Create organisation if name provided
     org_id = None
     if payload.organisation_name:
@@ -82,22 +94,22 @@ def authenticate_user(db: Session, payload: LoginRequest) -> dict[str, Any]:
     # Check for MFA
     if not is_testing() and (user.mfa_enabled or user.role == "investigator"):
         if not user.mfa_enabled:
-            # For investigators, we might want to force setup, but for now just 
+            # For investigators, we might want to force setup, but for now just
             # return a flag saying MFA setup is required or MFA code is needed
             # In a real system, we'd redirect to MFA setup.
             pass
-            
+
         if user.mfa_enabled:
             # Generate a temporary pre-auth token
             pre_auth_token = create_access_token(
                 subject=str(user.id),
                 data={"mfa_pending": True},
-                expires_delta=timedelta(minutes=5)
+                expires_delta=timedelta(minutes=5),
             )
             return {
                 "mfa_required": True,
                 "pre_auth_token": pre_auth_token,
-                "message": "MFA code required"
+                "message": "MFA code required",
             }
 
     return _build_token_pair(db, user)
@@ -107,14 +119,16 @@ def verify_mfa_login(db: Session, user_id: int, code: str) -> dict[str, Any]:
     user = user_crud.get_user_by_id(db, user_id)
     if not user or not user.is_active:
         raise UnauthorizedError("User not found or inactive")
-        
+
     if not user.mfa_enabled:
         raise ValidationError("MFA is not enabled for this user")
-        
+
     # Check TOTP code or backup code
-    if MFAService.verify_code(user, code) or MFAService.verify_backup_code(db, user, code):
+    if MFAService.verify_code(user, code) or MFAService.verify_backup_code(
+        db, user, code
+    ):
         return _build_token_pair(db, user)
-        
+
     raise UnauthorizedError("Invalid MFA code")
 
 
@@ -133,11 +147,15 @@ def refresh_user_tokens(db: Session, refresh_token_value: str) -> dict[str, str]
     return _build_token_pair(db, user)
 
 
-def logout_user(db: Session, *, access_token: str, refresh_token_value: str | None = None) -> None:
+def logout_user(
+    db: Session, *, access_token: str, refresh_token_value: str | None = None
+) -> None:
     if not auth_crud.get_blacklisted_token(db, access_token):
         claims = decode_access_token(access_token)
         expires_at = datetime.fromtimestamp(int(claims["exp"]), UTC)
-        auth_crud.blacklist_token(db, token=access_token, reason="logout", expires_at=expires_at)
+        auth_crud.blacklist_token(
+            db, token=access_token, reason="logout", expires_at=expires_at
+        )
 
     if refresh_token_value:
         refresh_token = auth_crud.get_refresh_token(db, refresh_token_value)
@@ -145,7 +163,9 @@ def logout_user(db: Session, *, access_token: str, refresh_token_value: str | No
             auth_crud.revoke_refresh_token(db, refresh_token)
 
 
-def request_password_reset(db: Session, payload: PasswordResetRequest) -> dict[str, str]:
+def request_password_reset(
+    db: Session, payload: PasswordResetRequest
+) -> dict[str, str]:
     email = normalize_email(payload.email)
     user = user_crud.get_user_by_email(db, email)
     if not user:
@@ -162,14 +182,18 @@ def request_password_reset(db: Session, payload: PasswordResetRequest) -> dict[s
     return {"message": "Password reset token created", "reset_token": reset_token_value}
 
 
-def confirm_password_reset(db: Session, payload: PasswordResetConfirm) -> dict[str, str]:
+def confirm_password_reset(
+    db: Session, payload: PasswordResetConfirm
+) -> dict[str, str]:
     reset_token = auth_crud.get_password_reset_token(db, payload.token)
     if not reset_token or reset_token.used:
         raise UnauthorizedError("Invalid password reset token")
     if reset_token.expires_at < datetime.now(UTC):
         raise UnauthorizedError("Password reset token has expired")
     if not is_strong_password(payload.new_password):
-        raise ValidationError("Password must be at least 12 characters and include upper, lower, digit, and symbol")
+        raise ValidationError(
+            "Password must be at least 12 characters and include upper, lower, digit, and symbol"
+        )
 
     user = user_crud.get_user_by_id(db, reset_token.user_id)
     if not user:

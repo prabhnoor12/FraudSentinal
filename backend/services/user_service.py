@@ -7,30 +7,36 @@ from utils.security_utils import normalize_email, is_strong_password
 from auth import hash_password
 
 
-def create_user_service(db: Session, payload: UserCreate, organisation_id: int | None = None):
+def create_user_service(
+    db: Session, payload: UserCreate, organisation_id: int | None = None
+):
     email = normalize_email(payload.email)
     if user_crud.get_user_by_email(db, email):
         raise ConflictError("User with this email already exists")
-        
+
     # Password strength validation
     user_info = {
         "email": email,
         "full_name": payload.full_name or "",
-        "phone": payload.phone or ""
+        "phone": payload.phone or "",
     }
     if not is_strong_password(payload.password, user_info):
         raise ValidationError("Password does not meet complexity requirements")
-        
+
     data = payload.model_dump()
     data["email"] = email
     data["organisation_id"] = organisation_id
     data["password_hash"] = hash_password(data.pop("password"))
-    
+
     return user_crud.create_user(db, **data)
 
 
-def list_users_service(db: Session, *, organisation_id: int | None = None, skip: int = 0, limit: int = 100):
-    return user_crud.list_users(db, organisation_id=organisation_id, skip=skip, limit=limit)
+def list_users_service(
+    db: Session, *, organisation_id: int | None = None, skip: int = 0, limit: int = 100
+):
+    return user_crud.list_users(
+        db, organisation_id=organisation_id, skip=skip, limit=limit
+    )
 
 
 def get_user_service(db: Session, user_id: int, organisation_id: int | None = None):
@@ -44,16 +50,18 @@ def get_user_service(db: Session, user_id: int, organisation_id: int | None = No
     return user
 
 
-def update_user_service(db: Session, user_id: int, payload: UserUpdate, organisation_id: int | None = None):
+def update_user_service(
+    db: Session, user_id: int, payload: UserUpdate, organisation_id: int | None = None
+):
     user = get_user_service(db, user_id, organisation_id=organisation_id)
     updates = payload.model_dump(exclude_unset=True)
-    
+
     if "password" in updates:
         password = updates.pop("password")
         user_info = {
             "email": updates.get("email", user.email),
             "full_name": updates.get("full_name", user.full_name or ""),
-            "phone": updates.get("phone", user.phone or "")
+            "phone": updates.get("phone", user.phone or ""),
         }
         if not is_strong_password(password, user_info):
             raise ValidationError("Password does not meet complexity requirements")
@@ -64,10 +72,12 @@ def update_user_service(db: Session, user_id: int, payload: UserUpdate, organisa
         existing = user_crud.get_user_by_email(db, updates["email"])
         if existing and existing.id != user.id:
             raise ConflictError("User with this email already exists")
-            
+
     return user_crud.update_user(db, user, **updates)
 
 
-def delete_user_service(db: Session, user_id: int, organisation_id: int | None = None) -> None:
+def delete_user_service(
+    db: Session, user_id: int, organisation_id: int | None = None
+) -> None:
     user = get_user_service(db, user_id, organisation_id=organisation_id)
     user_crud.delete_user(db, user)

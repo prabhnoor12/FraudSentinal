@@ -7,7 +7,9 @@ from schemas.transaction_schemas import TransactionCreate, TransactionOut
 from utils.exception_handling_utils import NotFoundError
 
 
-def _ensure_transaction_owners_exist(db: Session, *, user_id: int, organisation_id: int) -> None:
+def _ensure_transaction_owners_exist(
+    db: Session, *, user_id: int, organisation_id: int
+) -> None:
     if not user_crud.get_user_by_id(db, user_id):
         raise NotFoundError("User not found")
     if not organisation_crud.get_organisation_by_id(db, organisation_id):
@@ -37,20 +39,20 @@ def normalize_transaction_data_with_enrichment(
     enrichment_data: dict,
 ) -> dict:
     """Normalize transaction data and merge with enrichment signals.
-    
+
     Args:
         payload: The transaction create payload
         enrichment_data: Flat dictionary from enrichment_service.get_enriched_transaction_data()
-    
+
     Returns:
         Merged dictionary with all transaction and enrichment fields
     """
     # Start with basic normalization
     data = normalize_transaction_data(payload)
-    
+
     # Merge enrichment data (enrichment takes precedence for overlapping fields)
     data.update(enrichment_data)
-    
+
     return data
 
 
@@ -84,8 +86,12 @@ def create_transaction_record(
     *,
     commit: bool = True,
 ):
-    _ensure_transaction_owners_exist(db, user_id=payload.user_id, organisation_id=payload.organisation_id)
-    return transaction_crud.create_transaction(db, commit=commit, **normalize_transaction_data(payload))
+    _ensure_transaction_owners_exist(
+        db, user_id=payload.user_id, organisation_id=payload.organisation_id
+    )
+    return transaction_crud.create_transaction(
+        db, commit=commit, **normalize_transaction_data(payload)
+    )
 
 
 def create_transaction_service(
@@ -98,7 +104,9 @@ def create_transaction_service(
     return serialize_transaction(transaction)
 
 
-def get_transaction_service(db: Session, transaction_id: int, organisation_id: int | None = None) -> TransactionOut:
+def get_transaction_service(
+    db: Session, transaction_id: int, organisation_id: int | None = None
+) -> TransactionOut:
     transaction = transaction_crud.get_transaction_by_id(db, transaction_id)
     if not transaction:
         raise NotFoundError("Transaction not found")

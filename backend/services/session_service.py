@@ -22,7 +22,9 @@ def create_session_service(db: Session, payload: SessionCreate):
     )
 
 
-def list_sessions_service(db: Session, *, user_id: int | None = None, status: str | None = None):
+def list_sessions_service(
+    db: Session, *, user_id: int | None = None, status: str | None = None
+):
     return session_crud.list_sessions(db, user_id=user_id, status=status)
 
 

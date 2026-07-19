@@ -49,7 +49,9 @@ def create_transaction(
     db: Session = Depends(get_db),
 ):
     payload.organisation_id = org_id
-    return transaction_service.create_transaction_service(db, payload, audit_ctx=audit_ctx)
+    return transaction_service.create_transaction_service(
+        db, payload, audit_ctx=audit_ctx
+    )
 
 
 @router.get("/{transaction_id}", response_model=TransactionOut)
@@ -59,8 +61,10 @@ def get_transaction(
     audit_ctx: AuditContext = Depends(get_audit_ctx),
     db: Session = Depends(get_db),
 ):
-    transaction = transaction_service.get_transaction_service(db, transaction_id, organisation_id=org_id)
-    
+    transaction = transaction_service.get_transaction_service(
+        db, transaction_id, organisation_id=org_id
+    )
+
     # Log access to transaction
     audit_service.AuditService.log_resource_access(
         db,
@@ -69,7 +73,7 @@ def get_transaction(
         resource_type="transaction",
         resource_id=str(transaction_id),
         ip_address=audit_ctx.ip_address,
-        user_agent=audit_ctx.user_agent
+        user_agent=audit_ctx.user_agent,
     )
-    
+
     return transaction

@@ -225,23 +225,38 @@ def _normalize_comparison_value(field_name: FraudRuleField, comparison_value):
 
     if field_name == FraudRuleField.currency and isinstance(comparison_value, str):
         return comparison_value.strip().upper()
-    if field_name in {FraudRuleField.billing_country, FraudRuleField.shipping_country} and isinstance(comparison_value, str):
+    if field_name in {
+        FraudRuleField.billing_country,
+        FraudRuleField.shipping_country,
+    } and isinstance(comparison_value, str):
         return comparison_value.strip().upper()
-    if field_name in {FraudRuleField.payment_method, FraudRuleField.channel, FraudRuleField.customer_email} and isinstance(comparison_value, str):
+    if field_name in {
+        FraudRuleField.payment_method,
+        FraudRuleField.channel,
+        FraudRuleField.customer_email,
+    } and isinstance(comparison_value, str):
         return comparison_value.strip().lower()
     if isinstance(comparison_value, list):
-        return [_normalize_comparison_value(field_name, value) for value in comparison_value]
+        return [
+            _normalize_comparison_value(field_name, value) for value in comparison_value
+        ]
     return comparison_value
 
 
 def _validate_rule_data(data: dict) -> dict:
     data = dict(data)
 
-    if data.get("field_name") is not None and not isinstance(data["field_name"], FraudRuleField):
+    if data.get("field_name") is not None and not isinstance(
+        data["field_name"], FraudRuleField
+    ):
         data["field_name"] = FraudRuleField(data["field_name"])
-    if data.get("operator") is not None and not isinstance(data["operator"], FraudRuleOperator):
+    if data.get("operator") is not None and not isinstance(
+        data["operator"], FraudRuleOperator
+    ):
         data["operator"] = FraudRuleOperator(data["operator"])
-    if data.get("secondary_field_name") is not None and not isinstance(data["secondary_field_name"], FraudRuleField):
+    if data.get("secondary_field_name") is not None and not isinstance(
+        data["secondary_field_name"], FraudRuleField
+    ):
         data["secondary_field_name"] = FraudRuleField(data["secondary_field_name"])
 
     field_name = data.get("field_name")
@@ -253,39 +268,66 @@ def _validate_rule_data(data: dict) -> dict:
         data["rule_code"] = _normalize_rule_code(data["rule_code"])
 
     if field_name is not None and comparison_value is not None:
-        data["comparison_value"] = _normalize_comparison_value(field_name, comparison_value)
+        data["comparison_value"] = _normalize_comparison_value(
+            field_name, comparison_value
+        )
 
-    if operator in {FraudRuleOperator.gte, FraudRuleOperator.gt, FraudRuleOperator.lte, FraudRuleOperator.lt}:
+    if operator in {
+        FraudRuleOperator.gte,
+        FraudRuleOperator.gt,
+        FraudRuleOperator.lte,
+        FraudRuleOperator.lt,
+    }:
         if field_name not in NUMERIC_FIELDS:
-            raise ValidationError("Numeric comparison operators require a numeric field")
+            raise ValidationError(
+                "Numeric comparison operators require a numeric field"
+            )
         if not isinstance(data.get("comparison_value"), (int, float)):
-            raise ValidationError("Numeric comparison operators require a numeric comparison value")
+            raise ValidationError(
+                "Numeric comparison operators require a numeric comparison value"
+            )
 
     if operator in {FraudRuleOperator.eq, FraudRuleOperator.neq}:
         if data.get("comparison_value") is None:
             raise ValidationError("Equality operators require a comparison value")
 
     if operator in {FraudRuleOperator.in_list, FraudRuleOperator.not_in}:
-        if not isinstance(data.get("comparison_value"), list) or not data["comparison_value"]:
-            raise ValidationError("List operators require a non-empty comparison value list")
+        if (
+            not isinstance(data.get("comparison_value"), list)
+            or not data["comparison_value"]
+        ):
+            raise ValidationError(
+                "List operators require a non-empty comparison value list"
+            )
 
-    if operator == FraudRuleOperator.is_missing and data.get("secondary_field_name") is not None:
+    if (
+        operator == FraudRuleOperator.is_missing
+        and data.get("secondary_field_name") is not None
+    ):
         raise ValidationError("The is_missing operator does not use a secondary field")
 
     if operator == FraudRuleOperator.field_mismatch:
         if field_name is None or secondary_field_name is None:
-            raise ValidationError("The field_mismatch operator requires both primary and secondary fields")
+            raise ValidationError(
+                "The field_mismatch operator requires both primary and secondary fields"
+            )
         if field_name == secondary_field_name:
-            raise ValidationError("Primary and secondary fields must be different for field mismatch checks")
+            raise ValidationError(
+                "Primary and secondary fields must be different for field mismatch checks"
+            )
 
     if operator == FraudRuleOperator.field_mismatch and field_name not in STRING_FIELDS:
-        raise ValidationError("The field_mismatch operator is only supported for comparable string fields")
+        raise ValidationError(
+            "The field_mismatch operator is only supported for comparable string fields"
+        )
 
     return data
 
 
 def _ensure_organisation_exists(db: Session, organisation_id: int | None) -> None:
-    if organisation_id is not None and not organisation_crud.get_organisation_by_id(db, organisation_id):
+    if organisation_id is not None and not organisation_crud.get_organisation_by_id(
+        db, organisation_id
+    ):
         raise NotFoundError("Organisation not found")
 
 
@@ -305,7 +347,9 @@ def _rule_to_dict(rule: FraudRule) -> dict:
     }
 
 
-def create_fraud_rule_service(db: Session, payload: FraudRuleCreate, audit_ctx: AuditContext | None = None):
+def create_fraud_rule_service(
+    db: Session, payload: FraudRuleCreate, audit_ctx: AuditContext | None = None
+):
     _ensure_organisation_exists(db, payload.organisation_id)
     validated = _validate_rule_data(payload.model_dump())
 
@@ -351,7 +395,9 @@ def list_fraud_rules_service(
     )
 
 
-def get_fraud_rule_service(db: Session, rule_id: int, organisation_id: int | None = None):
+def get_fraud_rule_service(
+    db: Session, rule_id: int, organisation_id: int | None = None
+):
     fraud_rule = fraud_rule_crud.get_fraud_rule_by_id(db, rule_id)
     if not fraud_rule:
         raise NotFoundError("Fraud rule not found")
@@ -359,7 +405,9 @@ def get_fraud_rule_service(db: Session, rule_id: int, organisation_id: int | Non
     # If organisation_id is provided, ensure the rule belongs to that org or is global
     if organisation_id is not None and fraud_rule.organisation_id is not None:
         if fraud_rule.organisation_id != organisation_id:
-            raise NotFoundError("Fraud rule not found")  # Use 404 to avoid leaking existence
+            raise NotFoundError(
+                "Fraud rule not found"
+            )  # Use 404 to avoid leaking existence
 
     return fraud_rule
 
@@ -370,12 +418,12 @@ def get_fraud_rule_by_code_service(
     organisation_id: int | None = None,
 ) -> Any | None:
     """Get a fraud rule by its unique code.
-    
+
     Args:
         db: Database session
         rule_code: Unique rule code (e.g., 'geolocation_billing_mismatch')
         organisation_id: Optional organization scope
-    
+
     Returns:
         FraudRule if found, None otherwise
     """
@@ -398,7 +446,9 @@ def update_fraud_rule_service(
 
     # Only org owners can update their own rules
     if organisation_id is not None and fraud_rule.organisation_id != organisation_id:
-        raise ValidationError("Cannot update global rules or rules from other organisations")
+        raise ValidationError(
+            "Cannot update global rules or rules from other organisations"
+        )
 
     validated = _validate_rule_data(payload.model_dump(exclude_unset=True))
 
@@ -406,7 +456,9 @@ def update_fraud_rule_service(
         _ensure_organisation_exists(db, validated["organisation_id"])
 
     candidate_rule_code = validated.get("rule_code", fraud_rule.rule_code)
-    candidate_organisation_id = validated.get("organisation_id", fraud_rule.organisation_id)
+    candidate_organisation_id = validated.get(
+        "organisation_id", fraud_rule.organisation_id
+    )
     existing = fraud_rule_crud.get_fraud_rule_by_code(
         db,
         rule_code=candidate_rule_code,
@@ -417,7 +469,9 @@ def update_fraud_rule_service(
 
     merged_operator = validated.get("operator", fraud_rule.operator)
     merged_field_name = validated.get("field_name", fraud_rule.field_name)
-    merged_secondary = validated.get("secondary_field_name", fraud_rule.secondary_field_name)
+    merged_secondary = validated.get(
+        "secondary_field_name", fraud_rule.secondary_field_name
+    )
     merged_comparison = validated.get("comparison_value", fraud_rule.comparison_value)
     merged_data = {
         "field_name": merged_field_name,
@@ -454,7 +508,9 @@ def enable_fraud_rule_service(
 ):
     fraud_rule = get_fraud_rule_service(db, rule_id, organisation_id=organisation_id)
     if organisation_id is not None and fraud_rule.organisation_id != organisation_id:
-        raise ValidationError("Cannot enable global rules or rules from other organisations")
+        raise ValidationError(
+            "Cannot enable global rules or rules from other organisations"
+        )
 
     old_rule_data = _rule_to_dict(fraud_rule)
     updated_rule = fraud_rule_crud.update_fraud_rule(db, fraud_rule, enabled=True)
@@ -482,7 +538,9 @@ def disable_fraud_rule_service(
 ):
     fraud_rule = get_fraud_rule_service(db, rule_id, organisation_id=organisation_id)
     if organisation_id is not None and fraud_rule.organisation_id != organisation_id:
-        raise ValidationError("Cannot disable global rules or rules from other organisations")
+        raise ValidationError(
+            "Cannot disable global rules or rules from other organisations"
+        )
 
     old_rule_data = _rule_to_dict(fraud_rule)
     updated_rule = fraud_rule_crud.update_fraud_rule(db, fraud_rule, enabled=False)
@@ -502,8 +560,12 @@ def disable_fraud_rule_service(
     return updated_rule
 
 
-def list_effective_fraud_rules_service(db: Session, *, organisation_id: int | None = None):
-    return fraud_rule_crud.list_effective_fraud_rules(db, organisation_id=organisation_id)
+def list_effective_fraud_rules_service(
+    db: Session, *, organisation_id: int | None = None
+):
+    return fraud_rule_crud.list_effective_fraud_rules(
+        db, organisation_id=organisation_id
+    )
 
 
 def seed_default_fraud_rules(db: Session) -> None:
@@ -515,4 +577,6 @@ def seed_default_fraud_rules(db: Session) -> None:
         )
         if existing:
             continue
-        fraud_rule_crud.create_fraud_rule(db, organisation_id=None, enabled=True, **rule)
+        fraud_rule_crud.create_fraud_rule(
+            db, organisation_id=None, enabled=True, **rule
+        )

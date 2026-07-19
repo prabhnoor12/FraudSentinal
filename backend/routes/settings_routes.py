@@ -21,16 +21,33 @@ def require_auth(
     return auth_service.get_authenticated_user_from_token(db, token)
 
 
-@router.post("", response_model=OrganisationSettingsOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_auth)])
+@router.post(
+    "",
+    response_model=OrganisationSettingsOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_auth)],
+)
 def create_settings(payload: OrganisationSettingsCreate, db: Session = Depends(get_db)):
     return settings_service.create_settings_service(db, payload)
 
 
-@router.get("/{organisation_id}", response_model=OrganisationSettingsOut, dependencies=[Depends(require_auth)])
+@router.get(
+    "/{organisation_id}",
+    response_model=OrganisationSettingsOut,
+    dependencies=[Depends(require_auth)],
+)
 def get_settings(organisation_id: int, db: Session = Depends(get_db)):
     return settings_service.get_settings_service(db, organisation_id)
 
 
-@router.put("/{organisation_id}", response_model=OrganisationSettingsOut, dependencies=[Depends(require_auth)])
-def update_settings(organisation_id: int, payload: OrganisationSettingsUpdate, db: Session = Depends(get_db)):
+@router.put(
+    "/{organisation_id}",
+    response_model=OrganisationSettingsOut,
+    dependencies=[Depends(require_auth)],
+)
+def update_settings(
+    organisation_id: int,
+    payload: OrganisationSettingsUpdate,
+    db: Session = Depends(get_db),
+):
     return settings_service.update_settings_service(db, organisation_id, payload)

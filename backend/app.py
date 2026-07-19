@@ -56,7 +56,9 @@ async def lifespan(app: FastAPI):
         validate_secret_key(SECRET_KEY)
     except ValueError as e:
         logger.critical(f"CRITICAL SECURITY CONFIGURATION ERROR: {str(e)}")
-        logger.critical("Application startup aborted due to missing or weak SECRET_KEY.")
+        logger.critical(
+            "Application startup aborted due to missing or weak SECRET_KEY."
+        )
         sys.exit(1)
 
     db = SessionLocal()
@@ -71,8 +73,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="FraudSentinal Backend", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(LoggingMiddleware, exclude_paths={"/health"})
-app.add_middleware(RateLimitMiddleware, calls=120, window_seconds=60, exempt_paths={"/health"})
-app.add_middleware(IPLimitMiddleware, calls=300, window_seconds=60, exempt_paths={"/health"})
+app.add_middleware(
+    RateLimitMiddleware, calls=120, window_seconds=60, exempt_paths={"/health"}
+)
+app.add_middleware(
+    IPLimitMiddleware, calls=300, window_seconds=60, exempt_paths={"/health"}
+)
 
 app.add_exception_handler(AppException, handle_app_exception)
 app.add_exception_handler(HTTPException, handle_http_exception)

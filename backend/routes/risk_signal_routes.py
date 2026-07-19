@@ -40,4 +40,6 @@ def get_risk_signal(
     org_id: int = Depends(get_current_org_id),
     db: Session = Depends(get_db),
 ):
-    return risk_signal_service.get_risk_signal_service(db, risk_signal_id, organisation_id=org_id)
+    return risk_signal_service.get_risk_signal_service(
+        db, risk_signal_id, organisation_id=org_id
+    )

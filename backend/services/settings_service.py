@@ -1,7 +1,10 @@
 from sqlalchemy.orm import Session
 
 from cruds import organisation_crud, settings_crud
-from schemas.settings_schemas import OrganisationSettingsCreate, OrganisationSettingsUpdate
+from schemas.settings_schemas import (
+    OrganisationSettingsCreate,
+    OrganisationSettingsUpdate,
+)
 from utils.exception_handling_utils import ConflictError, NotFoundError
 
 
@@ -20,6 +23,10 @@ def get_settings_service(db: Session, organisation_id: int):
     return settings
 
 
-def update_settings_service(db: Session, organisation_id: int, payload: OrganisationSettingsUpdate):
+def update_settings_service(
+    db: Session, organisation_id: int, payload: OrganisationSettingsUpdate
+):
     settings = get_settings_service(db, organisation_id)
-    return settings_crud.update_settings(db, settings, **payload.model_dump(exclude_unset=True))
+    return settings_crud.update_settings(
+        db, settings, **payload.model_dump(exclude_unset=True)
+    )

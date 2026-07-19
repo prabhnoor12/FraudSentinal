@@ -50,7 +50,9 @@ def create_fraud_rule(
 ):
     # Enforce org_id from token
     payload.organisation_id = org_id
-    return fraud_rule_service.create_fraud_rule_service(db, payload, audit_ctx=audit_ctx)
+    return fraud_rule_service.create_fraud_rule_service(
+        db, payload, audit_ctx=audit_ctx
+    )
 
 
 @router.get("/{rule_id}", response_model=FraudRuleOut)
@@ -59,7 +61,9 @@ def get_fraud_rule(
     org_id: int = Depends(get_current_org_id),
     db: Session = Depends(get_db),
 ):
-    return fraud_rule_service.get_fraud_rule_service(db, rule_id, organisation_id=org_id)
+    return fraud_rule_service.get_fraud_rule_service(
+        db, rule_id, organisation_id=org_id
+    )
 
 
 @router.put("/{rule_id}", response_model=FraudRuleOut)

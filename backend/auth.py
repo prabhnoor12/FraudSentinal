@@ -1,15 +1,14 @@
-
 """Authentication helpers.
 
 Uses `pwdlib` for password hashing and `joserfc` to issue/verify
 OAuth2-style bearer tokens (JWTs). Exposes a FastAPI dependency
 `get_current_user` that returns decoded token claims.
 """
+
 from datetime import datetime, timedelta, UTC
 import os
 from typing import Any, Dict, Optional
 
-from database import get_db
 
 from pwdlib import PasswordHash
 from secrets import token_urlsafe
@@ -35,7 +34,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60")
 # Validate SECRET_KEY on import (will be caught on startup)
 try:
     validate_secret_key(SECRET_KEY)
-except ValueError as e:
+except ValueError:
     # We don't exit here because some tools might just import auth.py
     # app.py will do the final check on startup
     pass
@@ -77,7 +76,11 @@ def generate_secure_token(length: int = 32) -> str:
     return token_urlsafe(length)
 
 
-def create_access_token(subject: str, data: Optional[Dict[str, Any]] = None, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(
+    subject: str,
+    data: Optional[Dict[str, Any]] = None,
+    expires_delta: Optional[timedelta] = None,
+) -> str:
     """Create a signed JWT access token containing `sub` and optional data.
 
     `subject` is typically a user identifier (e.g. user id or email).

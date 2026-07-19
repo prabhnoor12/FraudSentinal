@@ -21,7 +21,9 @@ def get_blacklisted_token(db: Session, token: str) -> TokenBlacklist | None:
     return db.query(TokenBlacklist).filter(TokenBlacklist.token == token).first()
 
 
-def create_refresh_token(db: Session, *, user_id: int, token: str, expires_at) -> RefreshToken:
+def create_refresh_token(
+    db: Session, *, user_id: int, token: str, expires_at
+) -> RefreshToken:
     refresh_token = RefreshToken(user_id=user_id, token=token, expires_at=expires_at)
     db.add(refresh_token)
     db.commit()
@@ -47,7 +49,9 @@ def create_password_reset_token(
     token: str,
     expires_at,
 ) -> PasswordResetToken:
-    reset_token = PasswordResetToken(user_id=user_id, token=token, expires_at=expires_at)
+    reset_token = PasswordResetToken(
+        user_id=user_id, token=token, expires_at=expires_at
+    )
     db.add(reset_token)
     db.commit()
     db.refresh(reset_token)
@@ -55,10 +59,14 @@ def create_password_reset_token(
 
 
 def get_password_reset_token(db: Session, token: str) -> PasswordResetToken | None:
-    return db.query(PasswordResetToken).filter(PasswordResetToken.token == token).first()
+    return (
+        db.query(PasswordResetToken).filter(PasswordResetToken.token == token).first()
+    )
 
 
-def mark_password_reset_token_used(db: Session, reset_token: PasswordResetToken) -> PasswordResetToken:
+def mark_password_reset_token_used(
+    db: Session, reset_token: PasswordResetToken
+) -> PasswordResetToken:
     reset_token.used = True
     db.commit()
     db.refresh(reset_token)

@@ -1,11 +1,19 @@
 import pytest
-from fastapi import status
 
 
 @pytest.fixture
 def auth_header(client):
-    client.post("/auth/register", json={"email": "case@test.com", "password": "StrongPass123!", "organisation_name": "Case"})
-    token = client.post("/auth/login", json={"email": "case@test.com", "password": "StrongPass123!"}).json()["access_token"]
+    client.post(
+        "/auth/register",
+        json={
+            "email": "case@test.com",
+            "password": "StrongPass123!",
+            "organisation_name": "Case",
+        },
+    )
+    token = client.post(
+        "/auth/login", json={"email": "case@test.com", "password": "StrongPass123!"}
+    ).json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -25,7 +33,7 @@ def setup_data(client, auth_header):
         "risk_score": 50,
         "decision": FraudDecision.review,
         "reason_codes": ["high_amount"],
-        "matched_rules": []
+        "matched_rules": [],
     }
 
     with patch("services.scoring_service.score_transaction", return_value=mock_score):
@@ -37,11 +45,11 @@ def setup_data(client, auth_header):
                 "amount": 1000,
                 "currency": "USD",
                 "payment_method": "cc",
-                "channel": "web"
+                "channel": "web",
             },
-            headers=auth_header
+            headers=auth_header,
         )
-    
+
     # The check-fraud endpoint should have created a decision and a review case
     return response.json()
 
@@ -62,11 +70,8 @@ def test_resolve_review_case(client, auth_header, setup_data):
     # Resolve it
     response = client.post(
         f"/review-cases/{case_id}/resolve",
-        json={
-            "resolution_code": "approved_by_analyst",
-            "notes": "Looks fine"
-        },
-        headers=auth_header
+        json={"resolution_code": "approved_by_analyst", "notes": "Looks fine"},
+        headers=auth_header,
     )
     assert response.status_code == 200
     data = response.json()
@@ -81,14 +86,14 @@ def test_reopen_review_case(client, auth_header, setup_data):
     client.post(
         f"/review-cases/{case_id}/resolve",
         json={"resolution_code": "approved_by_analyst", "notes": "ok"},
-        headers=auth_header
+        headers=auth_header,
     )
 
     # Reopen it
     response = client.post(
         f"/review-cases/{case_id}/reopen",
         json={"reason": "Need more info"},
-        headers=auth_header
+        headers=auth_header,
     )
     assert response.status_code == 200
     data = response.json()

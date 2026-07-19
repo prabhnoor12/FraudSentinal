@@ -27,7 +27,9 @@ def get_organisation_service(db: Session, organisation_id: int):
     return organisation
 
 
-def update_organisation_service(db: Session, organisation_id: int, payload: OrganisationUpdate):
+def update_organisation_service(
+    db: Session, organisation_id: int, payload: OrganisationUpdate
+):
     organisation = get_organisation_service(db, organisation_id)
     updates = payload.model_dump(exclude_unset=True)
     if updates.get("slug"):

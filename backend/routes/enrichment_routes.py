@@ -84,8 +84,12 @@ def list_ip_geolocations(
 
 @router.get("/bin-lookup/lookup")
 def lookup_bin(
-    bin_number: str | None = Query(None, description="BIN number (first 6 digits of card)"),
-    card_number: str | None = Query(None, description="Full card number (BIN will be extracted)"),
+    bin_number: str | None = Query(
+        None, description="BIN number (first 6 digits of card)"
+    ),
+    card_number: str | None = Query(
+        None, description="Full card number (BIN will be extracted)"
+    ),
     db: Session = Depends(get_db),
     org_id: int = Depends(get_current_org_id),
 ) -> dict[str, Any]:
@@ -199,8 +203,12 @@ def seed_enrichment_data(
 @router.get("/signals/test")
 def test_enrichment_signals(
     ip_address: str | None = Query(None, description="IP address to test"),
-    card_number: str | None = Query(None, description="Card number to test (BIN will be extracted)"),
-    billing_country: str | None = Query(None, description="Billing country for mismatch detection"),
+    card_number: str | None = Query(
+        None, description="Card number to test (BIN will be extracted)"
+    ),
+    billing_country: str | None = Query(
+        None, description="Billing country for mismatch detection"
+    ),
     db: Session = Depends(get_db),
     org_id: int = Depends(get_current_org_id),
 ) -> dict[str, Any]:
@@ -232,13 +240,23 @@ def test_enrichment_signals(
         "billing_country": billing_country,
         "signals": {
             "ip_geolocation_available": signals.ip_geo.geolocation_available,
-            "ip_country": signals.ip_geo.ip_country_code if signals.ip_geo.geolocation_available else None,
+            "ip_country": signals.ip_geo.ip_country_code
+            if signals.ip_geo.geolocation_available
+            else None,
             "ip_billing_country_mismatch": signals.ip_billing_country_mismatch,
             "bin_lookup_available": signals.bin_data.bin_available,
-            "card_brand": signals.bin_data.card_brand if signals.bin_data.bin_available else None,
-            "card_type": signals.bin_data.card_type if signals.bin_data.bin_available else None,
-            "is_prepaid": signals.bin_data.is_prepaid if signals.bin_data.bin_available else None,
-            "issuing_country": signals.bin_data.issuing_country_code if signals.bin_data.bin_available else None,
+            "card_brand": signals.bin_data.card_brand
+            if signals.bin_data.bin_available
+            else None,
+            "card_type": signals.bin_data.card_type
+            if signals.bin_data.bin_available
+            else None,
+            "is_prepaid": signals.bin_data.is_prepaid
+            if signals.bin_data.bin_available
+            else None,
+            "issuing_country": signals.bin_data.issuing_country_code
+            if signals.bin_data.bin_available
+            else None,
         },
         "enrichment_data_for_rules": enrichment_data,
         "data_source": "local",

@@ -38,14 +38,14 @@ class FraudRuleField(str, Enum):
     transactions_last_24h = "transactions_last_24h"
     failed_attempts_last_24h = "failed_attempts_last_24h"
     external_transaction_id = "external_transaction_id"
-    
+
     # IP Geolocation enrichment fields
     ip_country_code = "ip_country_code"
     ip_region = "ip_region"
     ip_city = "ip_city"
     ip_isp = "ip_isp"
     geolocation_available = "geolocation_available"
-    
+
     # BIN lookup enrichment fields
     card_brand = "card_brand"
     card_type = "card_type"
@@ -56,7 +56,7 @@ class FraudRuleField(str, Enum):
     is_commercial = "is_commercial"
     bin_risk_score = "bin_risk_score"
     bin_available = "bin_available"
-    
+
     # Derived fraud signals from enrichment
     ip_billing_country_mismatch = "ip_billing_country_mismatch"
     bin_issuing_country_mismatch = "bin_issuing_country_mismatch"
