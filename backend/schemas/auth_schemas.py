@@ -45,6 +45,7 @@ class PasswordResetConfirm(BaseModel):
 
 class AuthUserOut(BaseModel):
     id: int
+    organisation_id: Optional[int] = None
     email: EmailStr
     full_name: Optional[str] = None
     is_active: bool

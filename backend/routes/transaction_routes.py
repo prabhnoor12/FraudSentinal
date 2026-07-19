@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
 from auth import get_current_org_id, oauth2_scheme
 from database import get_db
 from schemas.audit_schemas import AuditContext
-from schemas.transaction_schemas import TransactionOut
-from services import auth_service, transaction_service, audit_service
+from schemas.transaction_schemas import TransactionCreate, TransactionOut
+from services import audit_service, auth_service, transaction_service
 
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
@@ -39,6 +39,17 @@ def list_transactions(
         organisation_id=org_id,
         limit=limit,
     )
+
+
+@router.post("", response_model=TransactionOut, status_code=status.HTTP_201_CREATED)
+def create_transaction(
+    payload: TransactionCreate,
+    org_id: int = Depends(get_current_org_id),
+    audit_ctx: AuditContext = Depends(get_audit_ctx),
+    db: Session = Depends(get_db),
+):
+    payload.organisation_id = org_id
+    return transaction_service.create_transaction_service(db, payload, audit_ctx=audit_ctx)
 
 
 @router.get("/{transaction_id}", response_model=TransactionOut)

@@ -13,7 +13,7 @@ class ReviewCase(Base):
     decision_id = Column(Integer, ForeignKey("decisions.id"), nullable=False, index=True, unique=True)
     organisation_id = Column(Integer, ForeignKey("organisations.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    status_id = Column(Integer, ForeignKey("review_case_status.id"), nullable=False, index=True)
+    status = Column(String(30), nullable=False, index=True, default="open")
     resolution = Column(String(30), nullable=True, index=True)
     notes = Column(Text, nullable=True)
     case_metadata = Column("metadata", JSON, default=dict, nullable=False)

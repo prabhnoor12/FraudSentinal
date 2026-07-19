@@ -88,6 +88,16 @@ def create_transaction_record(
     return transaction_crud.create_transaction(db, commit=commit, **normalize_transaction_data(payload))
 
 
+def create_transaction_service(
+    db: Session,
+    payload: TransactionCreate,
+    *,
+    audit_ctx=None,
+) -> TransactionOut:
+    transaction = create_transaction_record(db, payload, commit=True)
+    return serialize_transaction(transaction)
+
+
 def get_transaction_service(db: Session, transaction_id: int, organisation_id: int | None = None) -> TransactionOut:
     transaction = transaction_crud.get_transaction_by_id(db, transaction_id)
     if not transaction:

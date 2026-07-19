@@ -136,7 +136,7 @@ def resolve_review_case_service(
         "resolved_at": datetime.now(UTC),
     }
     if payload.metadata:
-        merged_metadata = (review_case.metadata or {}).copy()
+        merged_metadata = (review_case.case_metadata or {}).copy()
         merged_metadata.update(payload.metadata)
         updates["metadata"] = merged_metadata
 
@@ -177,7 +177,7 @@ def reopen_review_case_service(
         "notes": payload.notes or review_case.notes,
     }
     if payload.metadata:
-        merged_metadata = (review_case.metadata or {}).copy()
+        merged_metadata = (review_case.case_metadata or {}).copy()
         merged_metadata.update(payload.metadata)
         updates["metadata"] = merged_metadata
 

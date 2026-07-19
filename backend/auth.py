@@ -1,24 +1,21 @@
 
 """Authentication helpers.
 
-Uses `passlib` for password hashing and `authlib` to issue/verify
+Uses `pwdlib` for password hashing and `joserfc` to issue/verify
 OAuth2-style bearer tokens (JWTs). Exposes a FastAPI dependency
 `get_current_user` that returns decoded token claims.
 """
 from datetime import datetime, timedelta, UTC
 import os
-import warnings
 from typing import Any, Dict, Optional
 
 from database import get_db
 
-from passlib.context import CryptContext
+from pwdlib import PasswordHash
 from secrets import token_urlsafe
 
-# Suppress Authlib deprecation warning for jose module
-warnings.filterwarnings("ignore", message=".*authlib.jose module is deprecated.*")
-
-from authlib.jose import jwt
+from joserfc import jwt
+from joserfc.jwk import OctKey
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from dotenv import load_dotenv
@@ -28,7 +25,7 @@ load_dotenv()
 from utils.security_utils import validate_secret_key
 
 # Password hashing
-pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
+pwd_context = PasswordHash.recommended()
 
 # JWT / token configuration (override via env vars)
 SECRET_KEY = os.getenv("SECRET_KEY")
@@ -44,6 +41,10 @@ except ValueError as e:
     pass
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+
+def get_jwt_key() -> OctKey:
+    return OctKey.import_key(SECRET_KEY)
 
 
 def hash_password(password: str) -> str:
@@ -67,10 +68,7 @@ def verify_and_update(password: str, hashed_password: str):
     If the hash needs to be upgraded, `new_hash_or_None` will contain
     the updated hash for the caller to persist; otherwise it will be None.
     """
-    valid = verify_password(password, hashed_password)
-    new_hash = None
-    if valid and needs_rehash(hashed_password):
-        new_hash = hash_password(password)
+    valid, new_hash = pwd_context.verify_and_update(password, hashed_password)
     return valid, new_hash
 
 
@@ -95,9 +93,7 @@ def create_access_token(subject: str, data: Optional[Dict[str, Any]] = None, exp
     to_encode["exp"] = int(expire.timestamp())
 
     header = {"alg": ALGORITHM}
-    token = jwt.encode(header, to_encode, SECRET_KEY)
-    if isinstance(token, bytes):
-        token = token.decode()
+    token = jwt.encode(header, to_encode, get_jwt_key(), algorithms=[ALGORITHM])
     return token
 
 
@@ -108,7 +104,8 @@ def decode_access_token(token: str) -> Dict[str, Any]:
     directly in FastAPI dependencies.
     """
     try:
-        claims = jwt.decode(token, SECRET_KEY)
+        decoded_token = jwt.decode(token, get_jwt_key(), algorithms=[ALGORITHM])
+        claims = decoded_token.claims
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -116,7 +113,7 @@ def decode_access_token(token: str) -> Dict[str, Any]:
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Validate exp manually (authlib's decode may not validate timestamps automatically)
+    # Validate exp manually because joserfc separates decode from claim validation
     exp = claims.get("exp")
     if exp is None:
         raise HTTPException(

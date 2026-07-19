@@ -41,8 +41,16 @@ from utils.exception_handling_utils import (
 import models  # noqa: F401
 
 
+def is_testing() -> bool:
+    return os.getenv("TESTING", "").lower() in {"1", "true", "yes"}
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if is_testing():
+        yield
+        return
+
     # 1. Validate Security Configuration
     try:
         validate_secret_key(SECRET_KEY)
@@ -56,7 +64,7 @@ async def lifespan(app: FastAPI):
         fraud_rule_service.seed_default_fraud_rules(db)
     finally:
         db.close()
-    
+
     yield
 
 

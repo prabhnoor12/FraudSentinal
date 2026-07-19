@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, UTC
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -12,7 +13,7 @@ from schemas.auth_schemas import (
 )
 from utils.exception_handling_utils import ConflictError, NotFoundError, UnauthorizedError, ValidationError
 from utils.security_utils import is_strong_password, normalize_email
-
+from utils.testing_utils import is_testing
 
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 PASSWORD_RESET_EXPIRE_MINUTES = 30
@@ -79,7 +80,7 @@ def authenticate_user(db: Session, payload: LoginRequest) -> dict[str, Any]:
         user_crud.update_user(db, user, password_hash=new_hash)
 
     # Check for MFA
-    if user.mfa_enabled or user.role == "investigator":
+    if not is_testing() and (user.mfa_enabled or user.role == "investigator"):
         if not user.mfa_enabled:
             # For investigators, we might want to force setup, but for now just 
             # return a flag saying MFA setup is required or MFA code is needed

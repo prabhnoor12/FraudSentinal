@@ -7,29 +7,31 @@ def test_tenant_isolation_fraud_rules(client):
     client.post(
         "/auth/register",
         json={
-            "email": "user_a@org_a.com",
+            "email": "user_a@orga.com",
             "password": "StrongPass123!",
             "organisation_name": "Org A"
         }
     )
     login_a = client.post(
         "/auth/login",
-        json={"email": "user_a@org_a.com", "password": "StrongPass123!"}
+        json={"email": "user_a@orga.com", "password": "StrongPass123!"}
     )
+    if "access_token" not in login_a.json():
+        print("Login A response:", login_a.json())
     token_a = login_a.json()["access_token"]
 
     # Register Org B and User B
     client.post(
         "/auth/register",
         json={
-            "email": "user_b@org_b.com",
+            "email": "user_b@orgb.com",
             "password": "StrongPass123!",
             "organisation_name": "Org B"
         }
     )
     login_b = client.post(
         "/auth/login",
-        json={"email": "user_b@org_b.com", "password": "StrongPass123!"}
+        json={"email": "user_b@orgb.com", "password": "StrongPass123!"}
     )
     token_b = login_b.json()["access_token"]
 
@@ -44,10 +46,13 @@ def test_tenant_isolation_fraud_rules(client):
             "field_name": "amount",
             "operator": "gte",
             "comparison_value": 100,
-            "priority": 1
+            "priority": 1,
+            "reason_code": "high_amount"
         },
         headers={"Authorization": f"Bearer {token_a}"}
     )
+    if "id" not in rule_a_response.json():
+        print("Fraud Rule A response:", rule_a_response.json())
     rule_a_id = rule_a_response.json()["id"]
 
     # User B should NOT be able to see Rule A
@@ -69,14 +74,17 @@ def test_tenant_isolation_fraud_rules(client):
 def test_tenant_isolation_transactions(client):
     # Use tokens from previous registration if possible, but simpler to just re-register
     # Org A
-    client.post("/auth/register", json={"email": "tx_a@org_a.com", "password": "StrongPass123!", "organisation_name": "A"})
-    token_a = client.post("/auth/login", json={"email": "tx_a@org_a.com", "password": "StrongPass123!"}).json()["access_token"]
+    client.post("/auth/register", json={"email": "tx_a@orga.com", "password": "StrongPass123!", "organisation_name": "A"})
+    login_tx_a = client.post("/auth/login", json={"email": "tx_a@orga.com", "password": "StrongPass123!"})
+    if "access_token" not in login_tx_a.json():
+        print("Login TX A response:", login_tx_a.json())
+    token_a = login_tx_a.json()["access_token"]
     user_a_id = client.get("/auth/me", headers={"Authorization": f"Bearer {token_a}"}).json()["id"]
     org_a_id = client.get("/auth/me", headers={"Authorization": f"Bearer {token_a}"}).json()["organisation_id"]
 
     # Org B
-    client.post("/auth/register", json={"email": "tx_b@org_b.com", "password": "StrongPass123!", "organisation_name": "B"})
-    token_b = client.post("/auth/login", json={"email": "tx_b@org_b.com", "password": "StrongPass123!"}).json()["access_token"]
+    client.post("/auth/register", json={"email": "tx_b@orgb.com", "password": "StrongPass123!", "organisation_name": "B"})
+    token_b = client.post("/auth/login", json={"email": "tx_b@orgb.com", "password": "StrongPass123!"}).json()["access_token"]
 
     # User A creates a transaction
     tx_a_response = client.post(
@@ -91,6 +99,8 @@ def test_tenant_isolation_transactions(client):
         },
         headers={"Authorization": f"Bearer {token_a}"}
     )
+    if "id" not in tx_a_response.json():
+        print("Transaction A response:", tx_a_response.json())
     tx_a_id = tx_a_response.json()["id"]
 
     # User B should NOT be able to see Transaction A

@@ -1,8 +1,21 @@
+import os
+import warnings
+from unittest import mock
+
 import pytest
 from fastapi.testclient import TestClient
+
+warnings.filterwarnings(
+    "ignore",
+    message=r"Using `httpx` with `starlette\.testclient` is deprecated; install `httpx2` instead\.",
+)
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+
+os.environ.setdefault("TESTING", "1")
+os.environ.setdefault("DATABASE_URL", "sqlite:///./test_app.db")
+os.environ.setdefault("SECRET_KEY", "TestSecretKey123!TestSecretKey123!")
 
 from app import app
 from auth import get_db
@@ -35,8 +48,19 @@ def db(db_engine):
     yield session
 
     session.close()
-    transaction.rollback()
+    if transaction.is_active:
+        transaction.rollback()
     connection.close()
+
+
+@pytest.fixture(autouse=True)
+def mock_mfa_service():
+    """
+    Mocks the MFAService to bypass actual MFA checks during tests.
+    """
+    with mock.patch("services.mfa_service.MFAService.verify_code", return_value=True), \
+         mock.patch("services.mfa_service.MFAService.verify_backup_code", return_value=True):
+        yield
 
 
 @pytest.fixture
