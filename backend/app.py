@@ -34,6 +34,7 @@ from routes.transaction_routes import router as transaction_router
 from routes.usage_routes import router as usage_router
 from routes.user_routes import router as user_router
 from routes.user_tracking_routes import router as user_tracking_router
+from routes.webhook_routes import router as webhook_router
 from services import fraud_rule_service
 from services.fraud_metrics_service import fraud_metrics
 from services.mfa_service import get_mfa_cipher
@@ -180,6 +181,7 @@ api_v1.include_router(fraud_rule_router)
 api_v1.include_router(risk_signal_router)
 api_v1.include_router(review_case_router)
 api_v1.include_router(billing_router)
+api_v1.include_router(webhook_router)
 app.include_router(api_v1)
 
 

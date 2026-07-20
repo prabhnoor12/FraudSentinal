@@ -10,6 +10,8 @@ class BillingPlanBase(StrictSchema):
     organisation_id: int
     name: str
     plan_code: str = "starter"
+    billing_provider: str = "internal"
+    provider_plan_id: Optional[str] = None
     price_per_unit: float = 0.0
     currency: str = "USD"
     billing_interval: str = "monthly"
@@ -35,7 +37,12 @@ class BillingRecordBase(StrictSchema):
     amount: float = 0.0
     currency: str = "USD"
     status: str = "pending"
+    billing_provider: str = "internal"
     invoice_id: Optional[str] = None
+    provider_invoice_id: Optional[str] = None
+    provider_payment_id: Optional[str] = None
+    provider_subscription_id: Optional[str] = None
+    provider_event_id: Optional[str] = None
     description: Optional[str] = None
     billing_period_start: datetime
     billing_period_end: datetime

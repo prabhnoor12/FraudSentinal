@@ -17,6 +17,9 @@ class Organisation(Base):
     plan_code = Column(String(50), default="starter", nullable=False)
     subscription_status = Column(String(30), default="active", nullable=False)
     trial_ends_at = Column(DateTime, nullable=True)
+    billing_provider = Column(String(30), nullable=True)
+    billing_customer_external_id = Column(String(100), nullable=True, index=True)
+    billing_subscription_external_id = Column(String(100), nullable=True, index=True)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
     updated_at = Column(
         DateTime,

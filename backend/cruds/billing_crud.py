@@ -1,7 +1,9 @@
+from datetime import UTC, datetime
+
 from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session
 
-from models.billing_models import BillingPlan, BillingRecord
+from models.billing_models import BillingPlan, BillingRecord, BillingWebhookEvent
 
 
 def create_billing_plan(db: Session, **data) -> BillingPlan:
@@ -25,6 +27,20 @@ def get_active_billing_plan(
     if plan_code is not None:
         query = query.filter(BillingPlan.plan_code == plan_code)
     return query.order_by(desc(BillingPlan.updated_at), desc(BillingPlan.id)).first()
+
+
+def get_billing_plan_by_provider_plan_id(
+    db: Session, *, billing_provider: str, provider_plan_id: str
+) -> BillingPlan | None:
+    return (
+        db.query(BillingPlan)
+        .filter(
+            BillingPlan.billing_provider == billing_provider,
+            BillingPlan.provider_plan_id == provider_plan_id,
+        )
+        .order_by(desc(BillingPlan.updated_at), desc(BillingPlan.id))
+        .first()
+    )
 
 
 def list_billing_plans(
@@ -97,6 +113,36 @@ def get_billing_record_by_id(db: Session, billing_record_id: int) -> BillingReco
     return db.query(BillingRecord).filter(BillingRecord.id == billing_record_id).first()
 
 
+def get_billing_record_by_provider_references(
+    db: Session,
+    *,
+    billing_provider: str,
+    organisation_id: int,
+    provider_invoice_id: str | None = None,
+    provider_payment_id: str | None = None,
+    provider_subscription_id: str | None = None,
+) -> BillingRecord | None:
+    query = db.query(BillingRecord).filter(
+        BillingRecord.billing_provider == billing_provider,
+        BillingRecord.organisation_id == organisation_id,
+    )
+    if provider_invoice_id:
+        record = query.filter(BillingRecord.provider_invoice_id == provider_invoice_id).first()
+        if record is not None:
+            return record
+    if provider_payment_id:
+        record = query.filter(BillingRecord.provider_payment_id == provider_payment_id).first()
+        if record is not None:
+            return record
+    if provider_subscription_id:
+        record = query.filter(
+            BillingRecord.provider_subscription_id == provider_subscription_id
+        ).order_by(desc(BillingRecord.created_at), desc(BillingRecord.id)).first()
+        if record is not None:
+            return record
+    return None
+
+
 def update_billing_record(
     db: Session, billing_record: BillingRecord, *, commit: bool = True, **updates
 ) -> BillingRecord:
@@ -159,3 +205,49 @@ def count_billing_records(
     if status is not None:
         query = query.filter(BillingRecord.status == status)
     return query.scalar() or 0
+
+
+def get_billing_webhook_event(
+    db: Session, *, provider: str, event_id: str
+) -> BillingWebhookEvent | None:
+    return (
+        db.query(BillingWebhookEvent)
+        .filter(
+            BillingWebhookEvent.provider == provider,
+            BillingWebhookEvent.event_id == event_id,
+        )
+        .first()
+    )
+
+
+def create_billing_webhook_event(
+    db: Session, *, commit: bool = True, **data
+) -> BillingWebhookEvent:
+    webhook_event = BillingWebhookEvent(**data)
+    db.add(webhook_event)
+    if commit:
+        db.commit()
+        db.refresh(webhook_event)
+    else:
+        db.flush()
+    return webhook_event
+
+
+def update_billing_webhook_event(
+    db: Session,
+    webhook_event: BillingWebhookEvent,
+    *,
+    commit: bool = True,
+    **updates,
+) -> BillingWebhookEvent:
+    for field, value in updates.items():
+        if value is not None:
+            setattr(webhook_event, field, value)
+    if "processed_at" not in updates and updates.get("processing_status") == "processed":
+        webhook_event.processed_at = datetime.now(UTC)
+    if commit:
+        db.commit()
+        db.refresh(webhook_event)
+    else:
+        db.flush()
+    return webhook_event

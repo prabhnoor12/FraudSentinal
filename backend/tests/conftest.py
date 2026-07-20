@@ -18,6 +18,7 @@ os.environ["DATABASE_URL"] = "sqlite:///./test_app.db"
 os.environ["SECRET_KEY"] = "TestSecretKey123!TestSecretKey123!"
 os.environ["JWT_ISSUER"] = "FraudSentinal"
 os.environ["JWT_AUDIENCE"] = "fraudsentinel-api"
+os.environ["RAZORPAY_WEBHOOK_SECRET"] = "razorpay-test-webhook-secret"
 
 from app import app
 from database import engine as app_engine

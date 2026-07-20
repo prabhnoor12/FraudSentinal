@@ -26,6 +26,26 @@ def get_organisation_by_slug(db: Session, slug: str) -> Organisation | None:
     return db.query(Organisation).filter(Organisation.slug == slug).first()
 
 
+def get_organisation_by_billing_subscription_external_id(
+    db: Session, subscription_external_id: str
+) -> Organisation | None:
+    return (
+        db.query(Organisation)
+        .filter(Organisation.billing_subscription_external_id == subscription_external_id)
+        .first()
+    )
+
+
+def get_organisation_by_billing_customer_external_id(
+    db: Session, customer_external_id: str
+) -> Organisation | None:
+    return (
+        db.query(Organisation)
+        .filter(Organisation.billing_customer_external_id == customer_external_id)
+        .first()
+    )
+
+
 def list_organisations(
     db: Session,
     *,
