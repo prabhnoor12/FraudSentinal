@@ -9,6 +9,8 @@ def create_user(
     email: str,
     organisation_id: int | None = None,
     full_name: str | None = None,
+    phone: str | None = None,
+    role: str = "investigator",
     is_active: bool = True,
     password_hash: str | None = None,
 ) -> User:
@@ -16,6 +18,8 @@ def create_user(
         email=email,
         organisation_id=organisation_id,
         full_name=full_name,
+        phone=phone,
+        role=role,
         is_active=is_active,
         password_hash=password_hash,
     )

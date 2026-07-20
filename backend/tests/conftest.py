@@ -18,7 +18,7 @@ os.environ.setdefault("DATABASE_URL", "sqlite:///./test_app.db")
 os.environ.setdefault("SECRET_KEY", "TestSecretKey123!TestSecretKey123!")
 
 from app import app
-from auth import get_db
+from database import get_db
 from database import Base
 
 # Use an in-memory SQLite database for testing

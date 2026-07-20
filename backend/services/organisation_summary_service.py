@@ -1,9 +1,12 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from models.transaction_models import Transaction
-from models.decision_models import Decision
-from models.review_case_models import ReviewCase, ReviewCaseStatus
 from datetime import datetime, timedelta, UTC
+
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from models.decision_models import Decision
+from models.review_case_models import ReviewCase
+from models.transaction_models import Transaction
+from schemas.review_case_schemas import ReviewCaseStatus
 
 
 class OrganisationSummaryService:
@@ -40,7 +43,7 @@ class OrganisationSummaryService:
             db.query(func.count(ReviewCase.id))
             .filter(
                 ReviewCase.organisation_id == organisation_id,
-                ReviewCase.status == ReviewCaseStatus.open,
+                ReviewCase.status == ReviewCaseStatus.open.value,
             )
             .scalar()
             or 0

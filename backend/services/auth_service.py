@@ -30,6 +30,12 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 PASSWORD_RESET_EXPIRE_MINUTES = 30
 
 
+def _as_utc_naive(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(UTC).replace(tzinfo=None)
+
+
 def _build_token_pair(db: Session, user) -> dict[str, str]:
     access_token = create_access_token(
         subject=str(user.id), data={"email": user.email, "org_id": user.organisation_id}
@@ -136,7 +142,7 @@ def refresh_user_tokens(db: Session, refresh_token_value: str) -> dict[str, str]
     refresh_token = auth_crud.get_refresh_token(db, refresh_token_value)
     if not refresh_token or refresh_token.revoked:
         raise UnauthorizedError("Invalid refresh token")
-    if refresh_token.expires_at < datetime.now(UTC):
+    if _as_utc_naive(refresh_token.expires_at) < _as_utc_naive(datetime.now(UTC)):
         raise UnauthorizedError("Refresh token has expired")
 
     user = user_crud.get_user_by_id(db, refresh_token.user_id)
@@ -188,7 +194,7 @@ def confirm_password_reset(
     reset_token = auth_crud.get_password_reset_token(db, payload.token)
     if not reset_token or reset_token.used:
         raise UnauthorizedError("Invalid password reset token")
-    if reset_token.expires_at < datetime.now(UTC):
+    if _as_utc_naive(reset_token.expires_at) < _as_utc_naive(datetime.now(UTC)):
         raise UnauthorizedError("Password reset token has expired")
     if not is_strong_password(payload.new_password):
         raise ValidationError(
