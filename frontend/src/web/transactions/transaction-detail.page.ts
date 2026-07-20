@@ -1,7 +1,7 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { ApiError, Decision, RiskSignal, Transaction, api } from '../api';
+import { ApiError, Decision, ReviewCase, RiskSignal, Transaction, api } from '../api';
 
 @Component({
   selector: 'fs-transaction-detail-page',
@@ -132,6 +132,32 @@ import { ApiError, Decision, RiskSignal, Transaction, api } from '../api';
 
           <div class="fs-card">
             <div class="fs-card-header">
+              <h2>Linked Review Cases</h2>
+            </div>
+            @if (linkedReviewCases().length === 0) {
+              <div class="fs-muted">No review cases are linked to this transaction.</div>
+            } @else {
+              <ul class="fs-list">
+                @for (reviewCase of linkedReviewCases(); track reviewCase.id) {
+                  <li class="fs-list-item">
+                    <div class="fs-list-title">Case #{{ reviewCase.id }} · {{ reviewCase.status }}</div>
+                    <div class="fs-list-meta">
+                      decision #{{ reviewCase.decision_id }} · resolution
+                      {{ reviewCase.resolution_code || 'pending' }} · {{ reviewCase.updated_at }}
+                    </div>
+                    <div class="fs-form-actions">
+                      <a class="fs-button is-secondary" [routerLink]="['/review-cases', reviewCase.id]">
+                        Open case
+                      </a>
+                    </div>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+
+          <div class="fs-card">
+            <div class="fs-card-header">
               <h2>Metadata</h2>
             </div>
             <pre class="fs-json">{{ metadataPreview() }}</pre>
@@ -150,6 +176,7 @@ export class TransactionDetailPage {
   protected readonly transaction = signal<Transaction | null>(null);
   protected readonly decisions = signal<Decision[]>([]);
   protected readonly riskSignals = signal<RiskSignal[]>([]);
+  protected readonly linkedReviewCases = signal<ReviewCase[]>([]);
   protected readonly metadataPreview = signal('{}');
 
   constructor() {
@@ -173,15 +200,17 @@ export class TransactionDetailPage {
     this.error.set(null);
 
     try {
-      const [transaction, decisions, riskSignals] = await Promise.all([
+      const [transaction, decisions, riskSignals, linkedReviewCases] = await Promise.all([
         api.transactions.get(transactionId),
         api.decisions.list({ transaction_id: transactionId, limit: 20 }),
         api.riskSignals.list({ transaction_id: transactionId, limit: 100 }),
+        api.reviewCases.list({ transaction_id: transactionId, limit: 20 }),
       ]);
 
       this.transaction.set(transaction);
       this.decisions.set(decisions);
       this.riskSignals.set(riskSignals);
+      this.linkedReviewCases.set(linkedReviewCases);
       this.metadataPreview.set(JSON.stringify(transaction.metadata ?? {}, null, 2));
     } catch (e) {
       const err = e as ApiError;
@@ -191,4 +220,3 @@ export class TransactionDetailPage {
     }
   }
 }
-
