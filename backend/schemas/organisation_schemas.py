@@ -3,6 +3,8 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from schemas.api_schemas import PaginatedResponse
+
 
 class OrganisationBase(BaseModel):
     name: str
@@ -26,3 +28,7 @@ class OrganisationOut(OrganisationBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class OrganisationListResponse(PaginatedResponse[OrganisationOut]):
+    pass

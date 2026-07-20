@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import ConfigDict
 
-from schemas.api_schemas import StrictSchema
+from schemas.api_schemas import PaginatedResponse, StrictSchema
 
 
 class UsageLimitBase(StrictSchema):
@@ -43,3 +43,11 @@ class LimitUsageRecordOut(LimitUsageRecordBase):
     updated_at: datetime
 
     model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+
+class UsageLimitListResponse(PaginatedResponse[UsageLimitOut]):
+    pass
+
+
+class LimitUsageRecordListResponse(PaginatedResponse[LimitUsageRecordOut]):
+    pass

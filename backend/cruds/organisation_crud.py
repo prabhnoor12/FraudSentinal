@@ -1,3 +1,4 @@
+from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session
 
 from models.organisation_models import Organisation
@@ -26,9 +27,37 @@ def get_organisation_by_slug(db: Session, slug: str) -> Organisation | None:
 
 
 def list_organisations(
-    db: Session, *, skip: int = 0, limit: int = 100
+    db: Session,
+    *,
+    organisation_id: int | None = None,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
 ) -> list[Organisation]:
-    return db.query(Organisation).offset(skip).limit(limit).all()
+    query = db.query(Organisation)
+    if organisation_id is not None:
+        query = query.filter(Organisation.id == organisation_id)
+    order_column = {
+        "created_at": Organisation.created_at,
+        "updated_at": Organisation.updated_at,
+        "name": Organisation.name,
+        "id": Organisation.id,
+    }.get(sort_by, Organisation.created_at)
+    order_func = asc if sort_dir == "asc" else desc
+    return (
+        query.order_by(order_func(order_column), desc(Organisation.id))
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+
+def count_organisations(db: Session, *, organisation_id: int | None = None) -> int:
+    query = db.query(func.count(Organisation.id))
+    if organisation_id is not None:
+        query = query.filter(Organisation.id == organisation_id)
+    return query.scalar() or 0
 
 
 def update_organisation(

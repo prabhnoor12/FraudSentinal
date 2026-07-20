@@ -3,6 +3,8 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
+from schemas.api_schemas import PaginatedResponse
+
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -31,3 +33,7 @@ class UserOut(UserBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class UserListResponse(PaginatedResponse[UserOut]):
+    pass

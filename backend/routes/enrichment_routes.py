@@ -4,11 +4,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from auth import get_current_org_id
 from database import get_db
+from schemas.enrichment_schemas import BINLookupListResponse, IPGeolocationListResponse
+from utils.pagination_utils import (
+    build_paginated_payload,
+    normalize_limit,
+    normalize_offset,
+    normalize_sort_dir,
+)
 from utils.security_utils import (
     normalize_card_number,
     normalize_country_code,
@@ -57,33 +64,38 @@ def lookup_ip_geolocation(
     }
 
 
-@router.get("/ip-geolocation/list")
+@router.get("/ip-geolocation/list", response_model=IPGeolocationListResponse)
 def list_ip_geolocations(
+    request: Request,
     country_code: str | None = Query(None, description="Filter by country code"),
+    offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
+    sort_by: str = Query("created_at"),
+    sort_dir: str = Query("desc"),
     db: Session = Depends(get_db),
     org_id: int = Depends(get_current_org_id),
 ) -> dict[str, Any]:
     """List IP geolocation entries with optional filtering."""
-    from cruds.ip_geolocation_crud import list_ip_geolocations
+    from cruds.ip_geolocation_crud import count_ip_geolocations, list_ip_geolocations
 
-    geos = list_ip_geolocations(db, country_code=country_code, limit=limit)
-
-    return {
-        "total": len(geos),
-        "country_filter": country_code,
-        "data": [
-            {
-                "id": g.id,
-                "ip_start": g.ip_start,
-                "ip_end": g.ip_end,
-                "country_code": g.country_code,
-                "region": g.region,
-                "city": g.city,
-            }
-            for g in geos
-        ],
-    }
+    normalized_offset = normalize_offset(offset)
+    normalized_limit = normalize_limit(limit, default=100, maximum=1000)
+    geos = list_ip_geolocations(
+        db,
+        country_code=country_code,
+        offset=normalized_offset,
+        limit=normalized_limit,
+        sort_by=sort_by,
+        sort_dir=normalize_sort_dir(sort_dir),
+    )
+    total = count_ip_geolocations(db, country_code=country_code)
+    return build_paginated_payload(
+        request=request,
+        items=geos,
+        total=total,
+        limit=normalized_limit,
+        offset=normalized_offset,
+    )
 
 
 # BIN Lookup Routes
@@ -154,49 +166,61 @@ def lookup_bin(
     }
 
 
-@router.get("/bin-lookup/list")
+@router.get("/bin-lookup/list", response_model=BINLookupListResponse)
 def list_bin_lookups(
+    request: Request,
     card_brand: str | None = Query(None, description="Filter by card brand"),
     issuing_country: str | None = Query(None, description="Filter by issuing country"),
     high_risk_only: bool = Query(False, description="Only show high-risk BINs"),
+    offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
+    sort_by: str = Query("created_at"),
+    sort_dir: str = Query("desc"),
     db: Session = Depends(get_db),
     org_id: int = Depends(get_current_org_id),
 ) -> dict[str, Any]:
     """List BIN lookup entries with optional filtering."""
-    from cruds.bin_lookup_crud import get_high_risk_bins, list_bin_lookups
+    from cruds.bin_lookup_crud import (
+        count_bin_lookups,
+        count_high_risk_bins,
+        get_high_risk_bins,
+        list_bin_lookups,
+    )
 
+    normalized_offset = normalize_offset(offset)
+    normalized_limit = normalize_limit(limit, default=100, maximum=1000)
     if high_risk_only:
-        bins = get_high_risk_bins(db, limit=limit)
+        bins = get_high_risk_bins(
+            db,
+            offset=normalized_offset,
+            limit=normalized_limit,
+            sort_by=sort_by,
+            sort_dir=normalize_sort_dir(sort_dir),
+        )
+        total = count_high_risk_bins(db)
     else:
         bins = list_bin_lookups(
             db,
             card_brand=card_brand,
-            issuing_country=issuing_country,
-            limit=limit,
+            issuing_country_code=issuing_country,
+            offset=normalized_offset,
+            limit=normalized_limit,
+            sort_by=sort_by,
+            sort_dir=normalize_sort_dir(sort_dir),
+        )
+        total = count_bin_lookups(
+            db,
+            card_brand=card_brand,
+            issuing_country_code=issuing_country,
         )
 
-    return {
-        "total": len(bins),
-        "filters": {
-            "card_brand": card_brand,
-            "issuing_country": issuing_country,
-            "high_risk_only": high_risk_only,
-        },
-        "data": [
-            {
-                "id": b.id,
-                "bin_number": b.bin_number,
-                "card_brand": b.card_brand,
-                "card_type": b.card_type,
-                "issuing_bank": b.issuing_bank,
-                "issuing_country_code": b.issuing_country_code,
-                "is_prepaid": b.is_prepaid,
-                "risk_score": b.risk_score,
-            }
-            for b in bins
-        ],
-    }
+    return build_paginated_payload(
+        request=request,
+        items=bins,
+        total=total,
+        limit=normalized_limit,
+        offset=normalized_offset,
+    )
 
 
 @router.post("/seed")

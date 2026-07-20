@@ -32,11 +32,24 @@ def create_user_service(
 
 
 def list_users_service(
-    db: Session, *, organisation_id: int | None = None, skip: int = 0, limit: int = 100
+    db: Session,
+    *,
+    organisation_id: int | None = None,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
 ):
-    return user_crud.list_users(
-        db, organisation_id=organisation_id, skip=skip, limit=limit
+    items = user_crud.list_users(
+        db,
+        organisation_id=organisation_id,
+        offset=offset,
+        limit=limit,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
+    total = user_crud.count_users(db, organisation_id=organisation_id)
+    return items, total
 
 
 def get_user_service(db: Session, user_id: int, organisation_id: int | None = None):

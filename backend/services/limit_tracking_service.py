@@ -26,13 +26,28 @@ def list_usage_limits_service(
     user_id: int | None = None,
     organisation_id: int | None = None,
     limit_type: str | None = None,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
 ):
-    return limit_tracking_crud.list_usage_limits(
+    items = limit_tracking_crud.list_usage_limits(
+        db,
+        user_id=user_id,
+        organisation_id=organisation_id,
+        limit_type=limit_type,
+        offset=offset,
+        limit=limit,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
+    total = limit_tracking_crud.count_usage_limits(
         db,
         user_id=user_id,
         organisation_id=organisation_id,
         limit_type=limit_type,
     )
+    return items, total
 
 
 def create_limit_usage_record_service(db: Session, payload: LimitUsageRecordCreate):
@@ -42,7 +57,28 @@ def create_limit_usage_record_service(db: Session, payload: LimitUsageRecordCrea
     return limit_tracking_crud.create_limit_usage_record(db, **payload.model_dump())
 
 
-def list_limit_usage_records_service(db: Session, *, usage_limit_id: int | None = None):
-    return limit_tracking_crud.list_limit_usage_records(
-        db, usage_limit_id=usage_limit_id
+def list_limit_usage_records_service(
+    db: Session,
+    *,
+    usage_limit_id: int | None = None,
+    organisation_id: int | None = None,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "period_start",
+    sort_dir: str = "desc",
+):
+    items = limit_tracking_crud.list_limit_usage_records(
+        db,
+        usage_limit_id=usage_limit_id,
+        organisation_id=organisation_id,
+        offset=offset,
+        limit=limit,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
+    total = limit_tracking_crud.count_limit_usage_records(
+        db,
+        usage_limit_id=usage_limit_id,
+        organisation_id=organisation_id,
+    )
+    return items, total

@@ -1,3 +1,4 @@
+from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session
 
 from models.user_models import User
@@ -38,12 +39,37 @@ def get_user_by_email(db: Session, email: str) -> User | None:
 
 
 def list_users(
-    db: Session, *, organisation_id: int | None = None, skip: int = 0, limit: int = 100
+    db: Session,
+    *,
+    organisation_id: int | None = None,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
 ) -> list[User]:
     query = db.query(User)
     if organisation_id is not None:
         query = query.filter(User.organisation_id == organisation_id)
-    return query.offset(skip).limit(limit).all()
+    order_column = {
+        "created_at": User.created_at,
+        "updated_at": User.updated_at,
+        "email": User.email,
+        "id": User.id,
+    }.get(sort_by, User.created_at)
+    order_func = asc if sort_dir == "asc" else desc
+    return (
+        query.order_by(order_func(order_column), desc(User.id))
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+
+def count_users(db: Session, *, organisation_id: int | None = None) -> int:
+    query = db.query(func.count(User.id))
+    if organisation_id is not None:
+        query = query.filter(User.organisation_id == organisation_id)
+    return query.scalar() or 0
 
 
 def update_user(db: Session, user: User, **updates) -> User:

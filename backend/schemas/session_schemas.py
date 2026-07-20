@@ -3,6 +3,8 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from schemas.api_schemas import PaginatedResponse
+
 
 class SessionCreate(BaseModel):
     user_id: int
@@ -18,3 +20,7 @@ class SessionOut(SessionCreate):
     ended_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SessionListResponse(PaginatedResponse[SessionOut]):
+    pass

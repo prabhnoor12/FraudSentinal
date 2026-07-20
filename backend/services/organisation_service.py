@@ -16,8 +16,27 @@ def create_organisation_service(db: Session, payload: OrganisationCreate):
     )
 
 
-def list_organisations_service(db: Session, *, skip: int = 0, limit: int = 100):
-    return organisation_crud.list_organisations(db, skip=skip, limit=limit)
+def list_organisations_service(
+    db: Session,
+    *,
+    organisation_id: int | None = None,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
+):
+    items = organisation_crud.list_organisations(
+        db,
+        organisation_id=organisation_id,
+        offset=offset,
+        limit=limit,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
+    total = organisation_crud.count_organisations(
+        db, organisation_id=organisation_id
+    )
+    return items, total
 
 
 def get_organisation_service(db: Session, organisation_id: int):

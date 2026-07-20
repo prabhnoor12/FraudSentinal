@@ -23,9 +23,33 @@ def create_session_service(db: Session, payload: SessionCreate):
 
 
 def list_sessions_service(
-    db: Session, *, user_id: int | None = None, status: str | None = None
+    db: Session,
+    *,
+    user_id: int | None = None,
+    organisation_id: int | None = None,
+    status: str | None = None,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "started_at",
+    sort_dir: str = "desc",
 ):
-    return session_crud.list_sessions(db, user_id=user_id, status=status)
+    items = session_crud.list_sessions(
+        db,
+        user_id=user_id,
+        organisation_id=organisation_id,
+        status=status,
+        offset=offset,
+        limit=limit,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
+    total = session_crud.count_sessions(
+        db,
+        user_id=user_id,
+        organisation_id=organisation_id,
+        status=status,
+    )
+    return items, total
 
 
 def get_session_service(db: Session, session_id: int):

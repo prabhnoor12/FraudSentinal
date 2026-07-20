@@ -1,10 +1,16 @@
-from fastapi import APIRouter, Depends, Response, status, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from auth import get_current_org_id, oauth2_scheme
 from database import get_db
-from schemas.user_schemas import UserCreate, UserOut, UserUpdate
+from schemas.user_schemas import UserCreate, UserListResponse, UserOut, UserUpdate
 from services import auth_service, user_service
+from utils.pagination_utils import (
+    build_paginated_payload,
+    normalize_limit,
+    normalize_offset,
+    normalize_sort_dir,
+)
 
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -27,15 +33,32 @@ def require_admin(
     return user
 
 
-@router.get("", response_model=list[UserOut])
+@router.get("", response_model=UserListResponse)
 def list_users(
-    skip: int = 0,
+    request: Request,
+    offset: int = 0,
     limit: int = 100,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
     org_id: int = Depends(get_current_org_id),
     db: Session = Depends(get_db),
 ):
-    return user_service.list_users_service(
-        db, organisation_id=org_id, skip=skip, limit=limit
+    normalized_offset = normalize_offset(offset)
+    normalized_limit = normalize_limit(limit, default=100, maximum=200)
+    items, total = user_service.list_users_service(
+        db,
+        organisation_id=org_id,
+        offset=normalized_offset,
+        limit=normalized_limit,
+        sort_by=sort_by,
+        sort_dir=normalize_sort_dir(sort_dir),
+    )
+    return build_paginated_payload(
+        request=request,
+        items=items,
+        total=total,
+        limit=normalized_limit,
+        offset=normalized_offset,
     )
 
 

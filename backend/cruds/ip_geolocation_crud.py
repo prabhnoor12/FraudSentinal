@@ -1,5 +1,6 @@
 """CRUD operations for IP geolocation lookups."""
 
+from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session
 
 from models.ip_geolocation_models import IPGeolocation
@@ -55,10 +56,32 @@ def list_ip_geolocations(
     db: Session,
     *,
     country_code: str | None = None,
+    offset: int = 0,
     limit: int = 100,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
 ) -> list[IPGeolocation]:
     """List IP geolocation entries with optional filtering."""
     query = db.query(IPGeolocation)
     if country_code:
         query = query.filter(IPGeolocation.country_code == country_code)
-    return query.limit(limit).all()
+    order_column = {
+        "created_at": IPGeolocation.created_at,
+        "updated_at": IPGeolocation.updated_at,
+        "country_code": IPGeolocation.country_code,
+        "id": IPGeolocation.id,
+    }.get(sort_by, IPGeolocation.created_at)
+    order_func = asc if sort_dir == "asc" else desc
+    return (
+        query.order_by(order_func(order_column), desc(IPGeolocation.id))
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+
+def count_ip_geolocations(db: Session, *, country_code: str | None = None) -> int:
+    query = db.query(func.count(IPGeolocation.id))
+    if country_code:
+        query = query.filter(IPGeolocation.country_code == country_code)
+    return query.scalar() or 0

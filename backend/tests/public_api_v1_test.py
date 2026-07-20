@@ -410,3 +410,180 @@ def test_v1_audit_list_uses_paginated_contract(client, db):
     assert "pagination" in body
     assert body["pagination"]["limit"] == 5
     assert body["pagination"]["offset"] == 0
+
+
+def test_v1_limit_tracking_and_sessions_lists_use_paginated_contract(client):
+    token, me = _register_and_login(
+        client,
+        email="ops-paging@example.com",
+        password="StrongPass123!",
+        organisation_name="Ops Paging Org",
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+
+    usage_limit = client.post(
+        "/api/v1/limit-tracking/limits",
+        headers={**headers, "Idempotency-Key": "limit-create-001"},
+        json={
+            "user_id": me["id"],
+            "organisation_id": me["organisation_id"],
+            "limit_type": "fraud_checks",
+            "limit_value": 100,
+            "period": "monthly",
+            "is_active": "true",
+        },
+    )
+    assert usage_limit.status_code == status.HTTP_201_CREATED
+    usage_limit_id = usage_limit.json()["id"]
+
+    usage_record = client.post(
+        "/api/v1/limit-tracking/records",
+        headers={**headers, "Idempotency-Key": "limit-record-001"},
+        json={
+            "usage_limit_id": usage_limit_id,
+            "current_usage": 17,
+            "period_start": "2026-07-01T00:00:00Z",
+            "period_end": "2026-07-31T23:59:59Z",
+        },
+    )
+    assert usage_record.status_code == status.HTTP_201_CREATED
+
+    session_one = client.post(
+        "/api/v1/sessions",
+        headers={**headers, "Idempotency-Key": "session-create-001"},
+        json={
+            "user_id": me["id"],
+            "session_token": "session-token-001",
+            "ip_address": "127.0.0.1",
+            "user_agent": "pytest-agent",
+            "status": "active",
+        },
+    )
+    assert session_one.status_code == status.HTTP_201_CREATED
+
+    session_two = client.post(
+        "/api/v1/sessions",
+        headers={**headers, "Idempotency-Key": "session-create-002"},
+        json={
+            "user_id": me["id"],
+            "session_token": "session-token-002",
+            "ip_address": "127.0.0.2",
+            "user_agent": "pytest-agent",
+            "status": "active",
+        },
+    )
+    assert session_two.status_code == status.HTTP_201_CREATED
+
+    limits_list = client.get(
+        "/api/v1/limit-tracking/limits?limit=10&offset=0&sort_by=limit_value&sort_dir=desc",
+        headers=headers,
+    )
+    assert limits_list.status_code == status.HTTP_200_OK
+    limits_body = limits_list.json()
+    assert limits_body["pagination"]["total"] == 1
+    assert limits_body["items"][0]["limit_type"] == "fraud_checks"
+
+    records_list = client.get(
+        f"/api/v1/limit-tracking/records?usage_limit_id={usage_limit_id}&limit=10&offset=0",
+        headers=headers,
+    )
+    assert records_list.status_code == status.HTTP_200_OK
+    records_body = records_list.json()
+    assert records_body["pagination"]["total"] == 1
+    assert records_body["items"][0]["current_usage"] == 17
+
+    sessions_list = client.get(
+        f"/api/v1/sessions?user_id={me['id']}&limit=1&offset=0&sort_by=started_at&sort_dir=desc",
+        headers=headers,
+    )
+    assert sessions_list.status_code == status.HTTP_200_OK
+    sessions_body = sessions_list.json()
+    assert sessions_body["pagination"]["total"] == 2
+    assert len(sessions_body["items"]) == 1
+
+
+def test_v1_users_organisations_and_enrichment_lists_use_paginated_contract(client, db):
+    from cruds.bin_lookup_crud import create_bin_lookup
+    from cruds.ip_geolocation_crud import create_ip_geolocation
+
+    token, me = _register_and_login(
+        client,
+        email="catalog-paging@example.com",
+        password="StrongPass123!",
+        organisation_name="Catalog Paging Org",
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+
+    created_user = client.post(
+        "/api/v1/users",
+        headers={**headers, "Idempotency-Key": "user-create-001"},
+        json={
+            "email": "member@example.com",
+            "password": "StrongPass123!",
+            "full_name": "Member User",
+            "phone": "1234567890",
+            "role": "investigator",
+            "is_active": True,
+        },
+    )
+    assert created_user.status_code == status.HTTP_201_CREATED
+
+    users_list = client.get(
+        "/api/v1/users?limit=10&offset=0&sort_by=email&sort_dir=asc",
+        headers=headers,
+    )
+    assert users_list.status_code == status.HTTP_200_OK
+    users_body = users_list.json()
+    assert users_body["pagination"]["total"] == 2
+    assert users_body["items"][0]["email"] == "catalog-paging@example.com"
+
+    organisations_list = client.get(
+        "/api/v1/organisations?limit=10&offset=0",
+        headers=headers,
+    )
+    assert organisations_list.status_code == status.HTTP_200_OK
+    organisations_body = organisations_list.json()
+    assert organisations_body["pagination"]["total"] == 1
+    assert organisations_body["items"][0]["id"] == me["organisation_id"]
+
+    create_ip_geolocation(
+        db,
+        ip_start="1.1.1.0",
+        ip_end="1.1.1.255",
+        country_code="US",
+        region="CA",
+        city="Los Angeles",
+        latitude="34.0522",
+        longitude="-118.2437",
+        isp="Example ISP",
+    )
+    create_bin_lookup(
+        db,
+        bin_number="411111",
+        card_brand="visa",
+        card_type="credit",
+        issuing_bank="Example Bank",
+        issuing_country_code="US",
+        is_prepaid=False,
+        risk_score=75,
+    )
+
+    ip_list = client.get(
+        "/api/v1/enrichment/ip-geolocation/list?limit=5&offset=0",
+        headers=headers,
+    )
+    assert ip_list.status_code == status.HTTP_200_OK
+    ip_body = ip_list.json()
+    assert "items" in ip_body
+    assert "pagination" in ip_body
+    assert ip_body["pagination"]["limit"] == 5
+
+    bin_list = client.get(
+        "/api/v1/enrichment/bin-lookup/list?limit=5&offset=0&high_risk_only=true",
+        headers=headers,
+    )
+    assert bin_list.status_code == status.HTTP_200_OK
+    bin_body = bin_list.json()
+    assert "items" in bin_body
+    assert "pagination" in bin_body
+    assert bin_body["pagination"]["limit"] == 5
