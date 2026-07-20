@@ -38,6 +38,12 @@ class FraudRuleField(str, Enum):
     transactions_last_24h = "transactions_last_24h"
     failed_attempts_last_24h = "failed_attempts_last_24h"
     external_transaction_id = "external_transaction_id"
+    tx_count_1hour = "tx_count_1hour"
+    tx_count_24hour = "tx_count_24hour"
+    amount_velocity_1hour = "amount_velocity_1hour"
+    amount_velocity_24hour = "amount_velocity_24hour"
+    unique_ips_1hour = "unique_ips_1hour"
+    unique_ips_24hour = "unique_ips_24hour"
 
     # IP Geolocation enrichment fields
     ip_country_code = "ip_country_code"

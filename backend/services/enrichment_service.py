@@ -6,12 +6,17 @@ Uses local lookup tables for zero-latency enrichment.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
+import json
+import time
+from threading import RLock
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from cruds import bin_lookup_crud, ip_geolocation_crud
+from redis import RedisClient, get_redis_url
 
 
 @dataclass
@@ -58,6 +63,96 @@ class EnrichmentResult:
 
     # Raw enrichment data for storage
     raw_signals: dict[str, Any] | None = None
+
+
+class EnrichmentLookupCache:
+    """TTL cache with optional Redis backing for enrichment lookups."""
+
+    def __init__(self) -> None:
+        self._memory_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+        self._lock = RLock()
+        self._redis_client: RedisClient | None = None
+        self._redis_url: str | None = None
+
+    def get(self, key: str) -> dict[str, Any] | None:
+        now = time.monotonic()
+        with self._lock:
+            cached = self._memory_cache.get(key)
+            if cached and cached[0] > now:
+                return dict(cached[1])
+            if cached:
+                self._memory_cache.pop(key, None)
+
+        redis_client = self._get_redis_client()
+        if redis_client is None:
+            return None
+
+        try:
+            payload = self._run_redis_call(redis_client.get(key))
+        except Exception:
+            return None
+
+        if not payload:
+            return None
+
+        try:
+            return json.loads(payload)
+        except json.JSONDecodeError:
+            return None
+
+    def set(self, key: str, value: dict[str, Any], ttl_seconds: int) -> None:
+        payload = dict(value)
+        expires_at = time.monotonic() + ttl_seconds
+        with self._lock:
+            self._memory_cache[key] = (expires_at, payload)
+
+        redis_client = self._get_redis_client()
+        if redis_client is None:
+            return
+
+        try:
+            self._run_redis_call(
+                redis_client.set(
+                    key,
+                    json.dumps(payload, default=str, sort_keys=True),
+                    ex=ttl_seconds,
+                )
+            )
+        except Exception:
+            return
+
+    def reset(self) -> None:
+        with self._lock:
+            self._memory_cache.clear()
+
+    def _get_redis_client(self) -> RedisClient | None:
+        redis_url = get_redis_url()
+        if not redis_url:
+            return None
+
+        with self._lock:
+            if self._redis_client and self._redis_url == redis_url:
+                return self._redis_client
+            self._redis_url = redis_url
+            self._redis_client = RedisClient(redis_url)
+            return self._redis_client
+
+    @staticmethod
+    def _run_redis_call(coro):
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coro)
+        raise RuntimeError("Blocking Redis cache helper cannot run inside an active loop")
+
+
+lookup_cache = EnrichmentLookupCache()
+IP_GEO_CACHE_TTL_SECONDS = 60 * 60 * 24
+BIN_CACHE_TTL_SECONDS = 60 * 60 * 24 * 7
+
+
+def reset_enrichment_lookup_cache() -> None:
+    lookup_cache.reset()
 
 
 def enrich_transaction_signals(
@@ -120,10 +215,15 @@ def _enrich_ip_geolocation(db: Session, ip_address: str | None) -> IPGeoSignals:
     if not ip_address:
         return IPGeoSignals(geolocation_available=False)
 
+    cache_key = f"enrichment:ip_geo:{ip_address}"
+    cached = lookup_cache.get(cache_key)
+    if cached:
+        return IPGeoSignals(**cached)
+
     try:
         geo = ip_geolocation_crud.get_geolocation_by_ip(db, ip_address)
         if geo:
-            return IPGeoSignals(
+            signals = IPGeoSignals(
                 ip_country_code=geo.country_code,
                 ip_region=geo.region,
                 ip_city=geo.city,
@@ -132,6 +232,8 @@ def _enrich_ip_geolocation(db: Session, ip_address: str | None) -> IPGeoSignals:
                 ip_isp=geo.isp,
                 geolocation_available=True,
             )
+            lookup_cache.set(cache_key, signals.__dict__, IP_GEO_CACHE_TTL_SECONDS)
+            return signals
     except Exception:
         pass  # Fail gracefully if lookup fails
 
@@ -143,10 +245,16 @@ def _enrich_bin_data(db: Session, card_number: str | None) -> BINSignals:
     if not card_number or len(card_number) < 6:
         return BINSignals(bin_available=False)
 
+    normalized_bin = card_number[:6]
+    cache_key = f"enrichment:bin:{normalized_bin}"
+    cached = lookup_cache.get(cache_key)
+    if cached:
+        return BINSignals(**cached)
+
     try:
         bin_data = bin_lookup_crud.get_bin_by_card_number(db, card_number)
         if bin_data:
-            return BINSignals(
+            signals = BINSignals(
                 bin_number=bin_data.bin_number,
                 card_brand=bin_data.card_brand,
                 card_type=bin_data.card_type,
@@ -158,6 +266,8 @@ def _enrich_bin_data(db: Session, card_number: str | None) -> BINSignals:
                 bin_risk_score=bin_data.risk_score,
                 bin_available=True,
             )
+            lookup_cache.set(cache_key, signals.__dict__, BIN_CACHE_TTL_SECONDS)
+            return signals
     except Exception:
         pass  # Fail gracefully if lookup fails
 
@@ -222,6 +332,7 @@ def get_enriched_transaction_data(
         # BIN Data
         "card_brand": result.bin_data.card_brand,
         "card_type": result.bin_data.card_type,
+        "card_category": result.bin_data.card_category,
         "issuing_bank": result.bin_data.issuing_bank,
         "issuing_country_code": result.bin_data.issuing_country_code,
         "is_prepaid": result.bin_data.is_prepaid,

@@ -17,6 +17,7 @@ class ReasonCode(str, Enum):
     velocity_spike = "velocity_spike"
     repeated_failed_attempts = "repeated_failed_attempts"
     new_account = "new_account"
+    new_device = "new_device"
     cross_border_mismatch = "cross_border_mismatch"
     missing_device = "missing_device"
     risky_payment_method = "risky_payment_method"

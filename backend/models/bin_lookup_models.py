@@ -18,7 +18,7 @@ class BINLookup(Base):
     card_type = Column(String(50), nullable=True)  # credit, debit, prepaid
     card_category = Column(String(100), nullable=True)  # classic, gold, platinum
     issuing_bank = Column(String(200), nullable=True)
-    issuing_country_code = Column(String(2), nullable=True)
+    issuing_country_code = Column(String(2), nullable=True, index=True)
     issuing_country_name = Column(String(100), nullable=True)
     is_prepaid = Column(Boolean, default=False, nullable=False)
     is_commercial = Column(Boolean, default=False, nullable=False)

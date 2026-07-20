@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import time
+from threading import RLock
+
 from sqlalchemy.orm import Session
 
 from cruds import fraud_rule_crud, organisation_crud
@@ -21,6 +24,12 @@ NUMERIC_FIELDS = {
     FraudRuleField.account_age_days,
     FraudRuleField.transactions_last_24h,
     FraudRuleField.failed_attempts_last_24h,
+    FraudRuleField.tx_count_1hour,
+    FraudRuleField.tx_count_24hour,
+    FraudRuleField.amount_velocity_1hour,
+    FraudRuleField.amount_velocity_24hour,
+    FraudRuleField.unique_ips_1hour,
+    FraudRuleField.unique_ips_24hour,
 }
 
 STRING_FIELDS = {
@@ -82,6 +91,17 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "priority": 40,
     },
     {
+        "name": "Rapid velocity 1 hour",
+        "rule_code": "velocity_spike_1hour_3",
+        "description": "Adds risk when the customer reaches 3 transactions in the last hour.",
+        "reason_code": ReasonCode.velocity_spike,
+        "weight": 12,
+        "field_name": FraudRuleField.tx_count_1hour,
+        "operator": FraudRuleOperator.gte,
+        "comparison_value": 3,
+        "priority": 45,
+    },
+    {
         "name": "Velocity spike level 2",
         "rule_code": "velocity_spike_5",
         "description": "Adds more risk when recent transaction count reaches 5.",
@@ -102,6 +122,28 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "operator": FraudRuleOperator.gte,
         "comparison_value": 10,
         "priority": 60,
+    },
+    {
+        "name": "IP diversity 24 hour",
+        "rule_code": "velocity_ip_diversity_24hour_3",
+        "description": "Adds risk when a customer transacts from 3 or more IPs in 24 hours.",
+        "reason_code": ReasonCode.velocity_spike,
+        "weight": 15,
+        "field_name": FraudRuleField.unique_ips_24hour,
+        "operator": FraudRuleOperator.gte,
+        "comparison_value": 3,
+        "priority": 65,
+    },
+    {
+        "name": "Amount velocity 24 hour",
+        "rule_code": "velocity_amount_24hour_1000",
+        "description": "Adds risk when 24-hour spend velocity reaches 1000.",
+        "reason_code": ReasonCode.high_amount,
+        "weight": 12,
+        "field_name": FraudRuleField.amount_velocity_24hour,
+        "operator": FraudRuleOperator.gte,
+        "comparison_value": 1000,
+        "priority": 66,
     },
     {
         "name": "Repeated failed attempts level 1",
@@ -213,6 +255,64 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "priority": 160,
     },
 ]
+
+
+class RuleCache:
+    """Small TTL cache for effective rule sets by organisation."""
+
+    def __init__(self, ttl_seconds: int = 60) -> None:
+        self._ttl_seconds = ttl_seconds
+        self._cache: dict[int | None, tuple[float, tuple[FraudRule, ...]]] = {}
+        self._lock = RLock()
+
+    def get_effective_rules(
+        self,
+        db: Session,
+        *,
+        organisation_id: int | None,
+    ) -> list[FraudRule]:
+        cache_key = organisation_id
+        now = time.monotonic()
+
+        with self._lock:
+            cached = self._cache.get(cache_key)
+            if cached and cached[0] > now:
+                return list(cached[1])
+
+        rules = fraud_rule_crud.list_effective_fraud_rules(
+            db,
+            organisation_id=organisation_id,
+        )
+        detached_rules: list[FraudRule] = []
+        for rule in rules:
+            db.expunge(rule)
+            detached_rules.append(rule)
+
+        with self._lock:
+            self._cache[cache_key] = (
+                now + self._ttl_seconds,
+                tuple(detached_rules),
+            )
+
+        return list(detached_rules)
+
+    def invalidate(self, organisation_id: int | None = None) -> None:
+        with self._lock:
+            if organisation_id is None:
+                self._cache.clear()
+                return
+            self._cache.pop(organisation_id, None)
+
+
+rule_cache = RuleCache(ttl_seconds=60)
+
+
+def reset_effective_rule_cache() -> None:
+    rule_cache.invalidate(None)
+
+
+def invalidate_effective_rule_cache(organisation_id: int | None = None) -> None:
+    rule_cache.invalidate(organisation_id)
 
 
 def _normalize_rule_code(rule_code: str) -> str:
@@ -362,6 +462,7 @@ def create_fraud_rule_service(
         raise ConflictError("Fraud rule code already exists for this scope")
 
     rule = fraud_rule_crud.create_fraud_rule(db, **validated)
+    invalidate_effective_rule_cache(rule.organisation_id)
 
     if audit_ctx:
         AuditService.log_rule_change(
@@ -442,6 +543,7 @@ def update_fraud_rule_service(
     audit_ctx: AuditContext | None = None,
 ):
     fraud_rule = get_fraud_rule_service(db, rule_id, organisation_id=organisation_id)
+    previous_organisation_id = fraud_rule.organisation_id
     old_rule_data = _rule_to_dict(fraud_rule)
 
     # Only org owners can update their own rules
@@ -483,6 +585,12 @@ def update_fraud_rule_service(
     _validate_rule_data(merged_data)
 
     updated_rule = fraud_rule_crud.update_fraud_rule(db, fraud_rule, **validated)
+    if previous_organisation_id is None or updated_rule.organisation_id is None:
+        invalidate_effective_rule_cache()
+    else:
+        invalidate_effective_rule_cache(previous_organisation_id)
+        if updated_rule.organisation_id != previous_organisation_id:
+            invalidate_effective_rule_cache(updated_rule.organisation_id)
 
     if audit_ctx:
         AuditService.log_rule_change(
@@ -514,6 +622,7 @@ def enable_fraud_rule_service(
 
     old_rule_data = _rule_to_dict(fraud_rule)
     updated_rule = fraud_rule_crud.update_fraud_rule(db, fraud_rule, enabled=True)
+    invalidate_effective_rule_cache(updated_rule.organisation_id)
 
     if audit_ctx:
         AuditService.log_rule_change(
@@ -544,6 +653,7 @@ def disable_fraud_rule_service(
 
     old_rule_data = _rule_to_dict(fraud_rule)
     updated_rule = fraud_rule_crud.update_fraud_rule(db, fraud_rule, enabled=False)
+    invalidate_effective_rule_cache(updated_rule.organisation_id)
 
     if audit_ctx:
         AuditService.log_rule_change(
@@ -563,12 +673,11 @@ def disable_fraud_rule_service(
 def list_effective_fraud_rules_service(
     db: Session, *, organisation_id: int | None = None
 ):
-    return fraud_rule_crud.list_effective_fraud_rules(
-        db, organisation_id=organisation_id
-    )
+    return rule_cache.get_effective_rules(db, organisation_id=organisation_id)
 
 
 def seed_default_fraud_rules(db: Session) -> None:
+    created_any = False
     for rule in DEFAULT_FRAUD_RULES:
         existing = fraud_rule_crud.get_fraud_rule_by_code(
             db,
@@ -580,3 +689,6 @@ def seed_default_fraud_rules(db: Session) -> None:
         fraud_rule_crud.create_fraud_rule(
             db, organisation_id=None, enabled=True, **rule
         )
+        created_any = True
+    if created_any:
+        invalidate_effective_rule_cache()

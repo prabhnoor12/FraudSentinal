@@ -1,6 +1,6 @@
 from datetime import datetime, UTC
 
-from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Index, Integer, String
 
 from database import Base
 
@@ -9,6 +9,9 @@ class Transaction(Base):
     """Stores the normalized transaction payload evaluated by the fraud engine."""
 
     __tablename__ = "transactions"
+    __table_args__ = (
+        Index("idx_transactions_customer_time", "customer_id", "created_at"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)

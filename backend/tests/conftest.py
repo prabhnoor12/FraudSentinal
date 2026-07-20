@@ -23,6 +23,8 @@ from app import app
 from database import get_db
 from database import Base
 from middleware.rate_limiting_middleware import MemoryRateLimitStore
+from services.enrichment_service import reset_enrichment_lookup_cache
+from services.fraud_rule_service import reset_effective_rule_cache
 
 # Use an in-memory SQLite database for testing
 SQLALCHEMY_DATABASE_URL = "sqlite://"
@@ -78,6 +80,15 @@ def reset_rate_limit_stores():
         if isinstance(store, MemoryRateLimitStore):
             store.reset()
     yield
+
+
+@pytest.fixture(autouse=True)
+def reset_service_caches():
+    reset_effective_rule_cache()
+    reset_enrichment_lookup_cache()
+    yield
+    reset_effective_rule_cache()
+    reset_enrichment_lookup_cache()
 
 
 @pytest.fixture

@@ -57,7 +57,7 @@ def _build_scoring_snapshot(db: Session, organisation_id: int | None) -> dict:
 
 def check_fraud_service(db: Session, payload: FraudCheckRequest) -> FraudCheckResponse:
     score_result = scoring_service.score_transaction(db, payload)
-    transaction_data = transaction_service.normalize_transaction_data(payload)
+    transaction_data = score_result.get("evaluated_data") or transaction_service.normalize_transaction_data(payload)
 
     try:
         transaction = transaction_service.create_transaction_record(

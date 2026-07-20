@@ -36,6 +36,12 @@ class RedisClient:
         result = await self.execute("TTL", key)
         return int(result)
 
+    async def get(self, key: str) -> str | None:
+        result = await self.execute("GET", key)
+        if result is None:
+            return None
+        return str(result)
+
     async def incr(self, key: str) -> int:
         result = await self.execute("INCR", key)
         return int(result)
