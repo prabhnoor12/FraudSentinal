@@ -218,8 +218,20 @@ jobs:
 ## Action Plan
 
 ### Immediate (Today)
-- [ ] Update README with current features
+- [ ] Update README with current features and rollout flags
 - [ ] Commit all changes to git
+
+### Newly Added Rollout Notes
+- Run the latest Alembic migrations before enabling new device-fingerprinting flows
+- Set `REDIS_URL` in production to enable shared enrichment caching
+- Keep `ENABLE_ML_FRAUD_SCORING` disabled until you intentionally want hybrid scoring
+- Use `GET /health` and `GET /metrics` during deployment verification
+- Review targeted regression tests for:
+  - caching and rule optimizations
+  - persisted velocity scoring
+  - device fingerprinting
+  - hybrid scoring
+  - background fraud-check audit logging
 
 ### Short Term (When You Get Your Device)
 1. **Install PostgreSQL** (2-3 hours)
@@ -229,9 +241,9 @@ jobs:
    - Run migrations
 
 2. **Write Tests** (3-5 days)
-   - Unit tests for core services
-   - Integration tests for API
-   - Load tests for <100ms SLA
+   - Expand unit tests for remaining services
+   - Expand integration tests for API edge cases
+   - Add load tests for `<100ms` SLA validation
 
 3. **Setup CI/CD** (1 day)
    - GitHub Actions workflow
@@ -240,7 +252,7 @@ jobs:
 
 ### Medium Term (Before Production)
 1. **Monitoring** (1-2 days)
-   - Prometheus metrics
+   - Wire `/metrics` into Prometheus scraping or your preferred collector
    - Grafana dashboards
    - Sentry error tracking
 
@@ -262,11 +274,14 @@ jobs:
 - ✅ All core features implemented
 - ✅ Security audit passed
 - ✅ Complete API documentation
+- ✅ Fraud performance and detection improvements implemented
+- ✅ Targeted regression coverage for new scoring paths
+- ✅ Lightweight runtime metrics for fraud-check visibility
 
 **What's blocking production deployment:**
 - PostgreSQL migration (needs your own device)
-- Test coverage (should add before production)
-- Monitoring setup (can add after deployment)
+- Full load testing in your target environment
+- External monitoring/alerting integration
 
 **Recommendation:**
 1. Commit everything to git now

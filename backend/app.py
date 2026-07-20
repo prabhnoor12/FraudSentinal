@@ -32,6 +32,7 @@ from routes.usage_routes import router as usage_router
 from routes.user_routes import router as user_router
 from routes.user_tracking_routes import router as user_tracking_router
 from services import fraud_rule_service
+from services.fraud_metrics_service import fraud_metrics
 from services.mfa_service import get_mfa_cipher
 from utils.security_utils import validate_production_hardening, validate_secret_key
 from utils.exception_handling_utils import (
@@ -166,3 +167,11 @@ logger = logging.getLogger("fraudsentinel.app")
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/metrics")
+def metrics() -> dict[str, object]:
+    return {
+        "status": "ok",
+        "fraud_detection": fraud_metrics.snapshot(),
+    }

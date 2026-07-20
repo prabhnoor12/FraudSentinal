@@ -728,6 +728,28 @@ def downgrade():
 
 ## 5. Summary: Implementation Priority
 
+## 5.1 Current Implementation Status
+
+The roadmap items below are now implemented in the backend codebase:
+
+- `Rule indexing + fast lookup` in the scoring path to reduce unnecessary rule scans
+- `Rule result caching` for repeat rule/operator evaluations
+- `Early exit optimization` once the decline threshold is reached
+- `Redis-backed enrichment caching` with in-memory fallback for IP/BIN lookups
+- `Rule configuration cache` with invalidation on rule changes
+- `Velocity checking` from persisted transaction history, including 1-hour and 24-hour signals
+- `Device fingerprinting` with known-device persistence and `new_device` scoring
+- `Hybrid scoring foundation` behind `ENABLE_ML_FRAUD_SCORING=1`
+- `Async/background processing` for fraud-check audit logging
+- `Operational metrics` via `GET /metrics`
+
+### Rollout Notes
+
+1. Run the latest Alembic migrations before enabling the new device-fingerprinting flow.
+2. Set `REDIS_URL` in production to activate shared enrichment caching.
+3. Leave `ENABLE_ML_FRAUD_SCORING` unset until you are ready to evaluate hybrid scoring behavior.
+4. Use `GET /metrics` and existing `GET /health` during rollout verification.
+
 ### Phase 1: Quick Wins (This Week)
 1. ✅ **Database indexes** - 4 hours, massive performance gain
 2. ✅ **Early exit optimization** - 2 hours, 30% faster for fraud
@@ -737,17 +759,17 @@ def downgrade():
 **Total:** 3-4 days work, 5-10x performance improvement
 
 ### Phase 2: Advanced Features (Next 2 Weeks)
-1. 🚀 **Velocity checking** - 2-3 days, catches 15-25% more fraud
-2. 🚀 **Device fingerprinting** - 2-3 days, catches account takeover
-3. 🚀 **Async processing** - 2-3 days, 20-40% faster responses
-4. 🚀 **ML model** - 1-2 weeks, 20-30% accuracy improvement
+1. ✅ **Velocity checking** - implemented with persisted transaction-history signals
+2. ✅ **Device fingerprinting** - implemented with known-device tracking and `new_device` detection
+3. ✅ **Async processing** - implemented for non-critical fraud-check audit logging
+4. ✅ **ML model foundation** - implemented behind `ENABLE_ML_FRAUD_SCORING`
 
-**Total:** 3-4 weeks work, enterprise-grade fraud detection
+**Total:** Advanced detection foundation is now in place; further tuning is mostly thresholding, model calibration, and ops rollout.
 
 ### Phase 3: Production Hardening (Ongoing)
-1. 🔒 **Comprehensive testing** - 80%+ coverage
-2. 🔒 **Monitoring & alerting** - Prometheus, Grafana, Sentry
-3. 🔒 **Load testing** - Verify <100ms SLA
+1. ✅ **Comprehensive testing** - targeted regression coverage added for caching, velocity, devices, ML, and metrics
+2. � **Monitoring & alerting** - lightweight `/metrics` endpoint added; Prometheus/Grafana/Sentry integration still optional follow-up
+3. ⏳ **Load testing** - verify `<100ms` SLA in your deployment environment
 4. 🔒 **Security audit** - Penetration testing
 
 ---
@@ -767,7 +789,4 @@ def downgrade():
 3. Add Phase 2 features incrementally
 4. Phase 3 as you scale
 
-**Want me to implement any of these improvements?** I'd recommend starting with:
-1. Database indexes (easiest, biggest impact)
-2. Early exit optimization (simple, effective)
-3. Rule caching (eliminates DB load)
+**Recommended next step:** use the rollout notes above, run the migrations, and validate production latency with load tests after deployment.

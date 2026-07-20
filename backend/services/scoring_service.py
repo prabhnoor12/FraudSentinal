@@ -11,6 +11,7 @@ from schemas.transaction_schemas import TransactionCreate
 from services import (
     device_fingerprint_service,
     fraud_rule_service,
+    ml_fraud_service,
     transaction_service,
     velocity_service,
 )
@@ -173,7 +174,18 @@ def score_transaction(db: Session, payload: TransactionCreate) -> dict:
             if total_score >= decline_threshold:
                 break
 
-    risk_score = min(round(total_score, 2), 100.0)
+    rule_score = min(round(total_score, 2), 100.0)
+    risk_score = rule_score
+    ml_result = None
+    if ml_fraud_service.is_ml_scoring_enabled():
+        ml_result = ml_fraud_service.predict(transaction_data)
+        risk_score = min(
+            ml_fraud_service.combine_scores(
+                rule_score,
+                float(ml_result["risk_score"]),
+            ),
+            100.0,
+        )
     if risk_score >= decline_threshold:
         decision = FraudDecision.decline
     elif risk_score >= review_threshold:
@@ -186,6 +198,8 @@ def score_transaction(db: Session, payload: TransactionCreate) -> dict:
 
     return {
         "risk_score": risk_score,
+        "rule_score": rule_score,
+        "ml_result": ml_result,
         "decision": decision,
         "reason_codes": reason_codes,
         "matched_rules": matched_rules,
