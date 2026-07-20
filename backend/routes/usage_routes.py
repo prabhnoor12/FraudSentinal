@@ -32,6 +32,8 @@ def require_auth(
 @router.get(
     "/events",
     response_model=UsageEventListResponse,
+    summary="List usage events",
+    description="Returns usage events for the authenticated organisation with the shared v1 paginated envelope.",
     dependencies=[Depends(require_scopes("usage:read"))],
 )
 def list_usage_events(
@@ -68,6 +70,8 @@ def list_usage_events(
     "/events",
     response_model=UsageEventOut,
     status_code=status.HTTP_201_CREATED,
+    summary="Create usage event",
+    description="Creates a usage event. Public clients should send a stable Idempotency-Key for retries.",
     dependencies=[Depends(require_scopes("usage:write"))],
 )
 def create_usage_event(payload: UsageEventCreate, db: Session = Depends(get_db)):
@@ -77,6 +81,8 @@ def create_usage_event(payload: UsageEventCreate, db: Session = Depends(get_db))
 @router.get(
     "/summaries",
     response_model=UsageSummaryListResponse,
+    summary="List usage summaries",
+    description="Returns aggregated usage summaries for the authenticated organisation using the shared v1 paginated envelope.",
     dependencies=[Depends(require_scopes("usage:read"))],
 )
 def list_usage_summaries(

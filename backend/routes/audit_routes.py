@@ -32,7 +32,13 @@ def require_admin(
     return user
 
 
-@router.get("", response_model=AuditLogListResponse, dependencies=[Depends(require_admin)])
+@router.get(
+    "",
+    response_model=AuditLogListResponse,
+    summary="List audit logs",
+    description="Returns audit logs for the authenticated organisation using the shared v1 paginated envelope. Requires an admin user.",
+    dependencies=[Depends(require_admin)],
+)
 def list_audit_logs(
     request: Request,
     event_type: Optional[str] = None,

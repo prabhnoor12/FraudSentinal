@@ -26,6 +26,8 @@ router = APIRouter(prefix="/billing", tags=["billing"])
 @router.get(
     "/plans",
     response_model=BillingPlanListResponse,
+    summary="List billing plans",
+    description="Returns billing plans visible to the authenticated organisation using the standard v1 paginated list envelope.",
     dependencies=[Depends(require_scopes("billing:read"))],
 )
 def list_billing_plans(
@@ -61,6 +63,8 @@ def list_billing_plans(
     "/plans",
     response_model=BillingPlanOut,
     status_code=status.HTTP_201_CREATED,
+    summary="Create billing plan",
+    description="Creates a billing plan in the authenticated organisation.",
     dependencies=[Depends(require_scopes("billing:write"))],
 )
 def create_billing_plan(
@@ -75,6 +79,8 @@ def create_billing_plan(
 @router.get(
     "/records",
     response_model=BillingRecordListResponse,
+    summary="List billing records",
+    description="Returns billing records for the authenticated organisation using the standard v1 paginated list envelope.",
     dependencies=[Depends(require_scopes("billing:read"))],
 )
 def list_billing_records(
@@ -112,6 +118,8 @@ def list_billing_records(
     "/records",
     response_model=BillingRecordOut,
     status_code=status.HTTP_201_CREATED,
+    summary="Create billing record",
+    description="Creates a billing record in the authenticated organisation. Public clients should send an Idempotency-Key header.",
     dependencies=[Depends(require_scopes("billing:write"))],
 )
 def create_billing_record(

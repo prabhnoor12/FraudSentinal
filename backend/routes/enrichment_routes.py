@@ -64,7 +64,12 @@ def lookup_ip_geolocation(
     }
 
 
-@router.get("/ip-geolocation/list", response_model=IPGeolocationListResponse)
+@router.get(
+    "/ip-geolocation/list",
+    response_model=IPGeolocationListResponse,
+    summary="List IP geolocation records",
+    description="Returns local IP geolocation catalogue entries using the standard v1 paginated list envelope.",
+)
 def list_ip_geolocations(
     request: Request,
     country_code: str | None = Query(None, description="Filter by country code"),
@@ -166,7 +171,12 @@ def lookup_bin(
     }
 
 
-@router.get("/bin-lookup/list", response_model=BINLookupListResponse)
+@router.get(
+    "/bin-lookup/list",
+    response_model=BINLookupListResponse,
+    summary="List BIN lookup records",
+    description="Returns local BIN catalogue entries using the standard v1 paginated list envelope.",
+)
 def list_bin_lookups(
     request: Request,
     card_brand: str | None = Query(None, description="Filter by card brand"),

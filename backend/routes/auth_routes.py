@@ -199,6 +199,8 @@ def confirm_password_reset(
     "/service-accounts",
     response_model=ServiceAccountOut,
     status_code=status.HTTP_201_CREATED,
+    summary="Create service account",
+    description="Creates a service account for machine-to-machine access within the caller's permitted organisation scope.",
 )
 def create_service_account(
     payload: ServiceAccountCreate,
@@ -208,7 +210,12 @@ def create_service_account(
     return auth_service.create_service_account_service(db, current_user, payload)
 
 
-@router.get("/service-accounts", response_model=ServiceAccountListResponse)
+@router.get(
+    "/service-accounts",
+    response_model=ServiceAccountListResponse,
+    summary="List service accounts",
+    description="Returns service accounts using the standard v1 paginated list envelope.",
+)
 def list_service_accounts(
     request: Request,
     offset: int = 0,
@@ -240,6 +247,8 @@ def list_service_accounts(
     "/service-accounts/{service_account_id}/keys",
     response_model=APIKeyOut,
     status_code=status.HTTP_201_CREATED,
+    summary="Create API key",
+    description="Creates a new scoped API key for a service account. The raw key is only returned at creation time.",
 )
 def create_service_account_api_key(
     service_account_id: int,
@@ -255,6 +264,8 @@ def create_service_account_api_key(
 @router.get(
     "/service-accounts/{service_account_id}/keys",
     response_model=APIKeyListResponse,
+    summary="List API keys",
+    description="Returns service-account API keys using the standard v1 paginated list envelope.",
 )
 def list_service_account_api_keys(
     request: Request,

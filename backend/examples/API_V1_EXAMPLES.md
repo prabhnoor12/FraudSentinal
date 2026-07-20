@@ -1,6 +1,13 @@
 # FraudSentinal API v1 Examples
 
-## Python: Service Account Key Creation
+## Notes
+
+- All public routes use the `/api/v1` prefix.
+- Mutating API calls should send `Idempotency-Key`.
+- List endpoints return `items` plus `pagination`.
+- Errors return the shared `success/error` envelope with `request_id`.
+
+## Python: Create Service Account And API Key
 
 ```python
 import requests
@@ -22,7 +29,7 @@ service_account = requests.post(
 service_account.raise_for_status()
 service_account_id = service_account.json()["id"]
 
-api_key = requests.post(
+api_key_response = requests.post(
     f"{BASE_URL}/api/v1/auth/service-accounts/{service_account_id}/keys",
     headers={"Authorization": f"Bearer {JWT}"},
     json={
@@ -31,11 +38,12 @@ api_key = requests.post(
     },
     timeout=30,
 )
-api_key.raise_for_status()
-print(api_key.json()["raw_key"])
+api_key_response.raise_for_status()
+api_key = api_key_response.json()["raw_key"]
+print(api_key)
 ```
 
-## Python: Fraud Check Submission
+## Python: Submit A Fraud Check
 
 ```python
 import requests
@@ -47,6 +55,7 @@ API_KEY = "fs_live_your_key"
 response = requests.post(
     f"{BASE_URL}/api/v1/check-fraud",
     headers={
+        "Content-Type": "application/json",
         "X-API-Key": API_KEY,
         "Idempotency-Key": str(uuid.uuid4()),
     },
@@ -63,12 +72,43 @@ response = requests.post(
     timeout=30,
 )
 response.raise_for_status()
+print("request_id:", response.headers.get("X-Request-ID"))
 print(response.json())
 ```
 
-## Node.js: Usage Event Ingestion
+## Python: Read A Paginated List Endpoint
+
+```python
+import requests
+
+BASE_URL = "http://localhost:8000"
+JWT = "YOUR_USER_JWT"
+
+response = requests.get(
+    f"{BASE_URL}/api/v1/transactions",
+    headers={"Authorization": f"Bearer {JWT}"},
+    params={
+        "limit": 25,
+        "offset": 0,
+        "sort_by": "created_at",
+        "sort_dir": "desc",
+    },
+    timeout=30,
+)
+response.raise_for_status()
+payload = response.json()
+
+for item in payload["items"]:
+    print(item["id"], item["amount"], item["currency"])
+
+print(payload["pagination"])
+```
+
+## Node.js: Create A Usage Event
 
 ```javascript
+import crypto from "node:crypto";
+
 const response = await fetch("http://localhost:8000/api/v1/usage/events", {
   method: "POST",
   headers: {
@@ -91,10 +131,32 @@ if (!response.ok) {
   throw new Error(await response.text());
 }
 
+console.log("request_id:", response.headers.get("x-request-id"));
 console.log(await response.json());
 ```
 
-## Go: Billing Mutation
+## Node.js: Read Billing Records
+
+```javascript
+const response = await fetch(
+  "http://localhost:8000/api/v1/billing/records?status=pending&limit=10&offset=0",
+  {
+    headers: {
+      Authorization: `Bearer ${process.env.FS_JWT}`,
+    },
+  },
+);
+
+if (!response.ok) {
+  throw new Error(await response.text());
+}
+
+const payload = await response.json();
+console.log(payload.items);
+console.log(payload.pagination);
+```
+
+## Go: Create A Billing Record
 
 ```go
 package main
@@ -132,17 +194,32 @@ func main() {
 	defer resp.Body.Close()
 
 	payload, _ := io.ReadAll(resp.Body)
-	fmt.Println(resp.Status, strings.TrimSpace(string(payload)))
+	fmt.Println("status:", resp.Status)
+	fmt.Println("request_id:", resp.Header.Get("X-Request-ID"))
+	fmt.Println(strings.TrimSpace(string(payload)))
 }
 ```
 
-## Node.js: Webhook Signature Verification
+## Node.js: Verify Webhook Signature
 
 ```javascript
 import crypto from "node:crypto";
 
+function canonicalize(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalize).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalize(value[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 function verifyWebhook(payload, timestamp, signature, secret) {
-  const canonicalPayload = JSON.stringify(payload);
+  const canonicalPayload = canonicalize(payload);
   const expected = crypto
     .createHmac("sha256", secret)
     .update(`${timestamp}.${canonicalPayload}`)
@@ -152,5 +229,22 @@ function verifyWebhook(payload, timestamp, signature, secret) {
     Buffer.from(expected, "utf8"),
     Buffer.from(signature, "utf8"),
   );
+}
+```
+
+## Example Error Handling
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "missing_idempotency_key",
+    "message": "Idempotency-Key header is required for this endpoint",
+    "details": {
+      "header": "Idempotency-Key",
+      "retention_days": 7
+    },
+    "request_id": "a8e297d9-b3a0-4380-8e72-2c07d8e15cd5"
+  }
 }
 ```

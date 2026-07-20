@@ -38,7 +38,12 @@ def get_audit_ctx(
     )
 
 
-@router.get("", response_model=TransactionListResponse)
+@router.get(
+    "",
+    response_model=TransactionListResponse,
+    summary="List transactions",
+    description="Returns transactions for the authenticated organisation using the standard v1 paginated list envelope.",
+)
 def list_transactions(
     request: Request,
     user_id: int | None = None,
@@ -68,7 +73,13 @@ def list_transactions(
     )
 
 
-@router.post("", response_model=TransactionOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=TransactionOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create transaction",
+    description="Creates a transaction in the authenticated organisation. This endpoint requires an Idempotency-Key header in public API usage.",
+)
 def create_transaction(
     payload: TransactionCreate,
     principal=Depends(require_scopes("transactions:write")),
