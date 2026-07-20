@@ -1,294 +1,54 @@
 # Production Readiness Checklist - FraudSentinal
 
-**Last Updated:** 2026-07-18  
-**Status:** Code Complete, Infrastructure Pending
+## Current Rollout State
 
----
+- Core fraud-scoring improvements are implemented
+- Device fingerprinting, persisted velocity checks, hybrid scoring foundation, and metrics are in place
+- `GET /metrics` is available for rollout visibility
+- `backend/scripts/load_test_check_fraud.py` provides a reproducible `/check-fraud` benchmark
 
-## Quick Assessment
+## Before Running The Benchmark
 
-| Category | Status | Blocker |
-|----------|--------|---------|
-| Core Features | ✅ 100% Complete | None |
-| Security | ✅ Passed Audit | None |
-| Code Quality | ✅ Good | None |
-| Documentation | ✅ Complete | None |
-| **Database** | ⚠️ SQLite → PostgreSQL | **PostgreSQL Install** |
-| **Testing** | ⚠️ 0% Coverage | **Write Tests** |
-| **Monitoring** | ❌ Not Setup | **Infrastructure** |
-| **CI/CD** | ❌ Not Setup | **GitHub Actions** |
+1. Run the latest Alembic migrations.
+2. Set production-like environment variables, especially:
+   - `DATABASE_URL`
+   - `SECRET_KEY`
+   - `JWT_ISSUER`
+   - `JWT_AUDIENCE`
+   - `REDIS_URL` if you want shared enrichment caching
+3. Start the backend API.
+4. If you enable hybrid scoring, set `ENABLE_ML_FRAUD_SCORING=1` intentionally.
 
-**Verdict:** Code is production-ready. Infrastructure needs work.
+## Benchmark Command
 
----
-
-## 1. Database (BLOCKING)
-
-**Current:** SQLite (file-based, single-writer, not for production)  
-**Required:** PostgreSQL (concurrent connections, high availability)
-
-### Why This Matters
-```python
-# SQLite: One write at a time
-# If 2 fraud checks happen simultaneously, one waits
-# This breaks the <100ms SLA promise
-
-# PostgreSQL: Handles concurrent writes
-# Multiple fraud checks run in parallel
-# Maintains <100ms response time
+```bash
+cd backend
+venv\Scripts\python.exe scripts\load_test_check_fraud.py --base-url http://127.0.0.1:8001 --requests 200 --concurrency 20 --warmup 20
 ```
 
-### Action Items
+## Optional Existing Auth
 
-| Task | Priority | Effort | Blocked By |
-|------|----------|--------|------------|
-| Install PostgreSQL | HIGH | 30 min | Your own device |
-| Create database & user | HIGH | 10 min | PostgreSQL install |
-| Update DATABASE_URL | HIGH | 5 min | DB creation |
-| Install psycopg2-binary | HIGH | 5 min | None |
-| Create Alembic migrations | HIGH | 30 min | PostgreSQL install |
-| Run migrations | HIGH | 10 min | Migrations created |
-| Test connection | HIGH | 10 min | All above |
+If you want to benchmark with an existing token instead of letting the script create a benchmark user:
 
-**Estimated Time:** 2-3 hours  
-**Blocked Until:** You have your own device with admin rights
-
----
-
-## 2. Testing (HIGH PRIORITY)
-
-**Current:** 0% test coverage  
-**Required:** Minimum 80% for production
-
-### Critical Tests to Write
-
-| Test Type | Priority | Count | Purpose |
-|-----------|----------|-------|---------|
-| **Unit Tests** | HIGH | 50+ | Test individual functions |
-| Rule engine logic | HIGH | 20 | Ensure rules match correctly |
-| Scoring service | HIGH | 15 | Verify risk score calculation |
-| Enrichment service | HIGH | 10 | Test IP/BIN lookup |
-| CRUD operations | MEDIUM | 20 | Database access layer |
-| **Integration Tests** | HIGH | 20+ | Test endpoint-to-endpoint |
-| POST /check-fraud | CRITICAL | 10 | Main fraud detection flow |
-| Auth endpoints | HIGH | 5 | Login/logout flows |
-| Enrichment endpoints | MEDIUM | 5 | IP/BIN lookup |
-| **Load Tests** | MEDIUM | 3+ | Verify <100ms SLA |
-| Concurrent fraud checks | HIGH | 1 | Parallel request handling |
-| Sustained load | MEDIUM | 1 | 1000+ req/min |
-| Spike test | MEDIUM | 1 | Sudden traffic spikes |
-
-### Test Framework
-```python
-# Use pytest
-pytest
-pytest-asyncio  # for async tests
-pytest-cov      # for coverage
-httpx           # for HTTP client in tests
-faker           # for generating test data
+```bash
+venv\Scripts\python.exe scripts\load_test_check_fraud.py ^
+  --base-url http://127.0.0.1:8001 ^
+  --access-token YOUR_TOKEN ^
+  --user-id 1 ^
+  --organisation-id 1 ^
+  --requests 200 ^
+  --concurrency 20
 ```
 
-### Example Test Structure
-```
-tests/
-├── __init__.py
-├── conftest.py           # Shared fixtures
-├── unit/
-│   ├── __init__.py
-│   ├── test_scoring_service.py
-│   ├── test_enrichment_service.py
-│   └── test_rule_engine.py
-├── integration/
-│   ├── __init__.py
-│   ├── test_fraud_check.py
-│   ├── test_auth.py
-│   └── test_enrichment.py
-└── load/
-    ├── __init__.py
-    └── test_performance.py
-```
+## Pass Criteria
 
-**Estimated Time:** 3-5 days for comprehensive coverage  
-**Start After:** PostgreSQL migration complete
+- `success_rate` stays close to `100%`
+- `latency_ms.p95` stays below your target SLA
+- `status_codes` does not show unexpected `401`, `403`, `429`, or `500` spikes
+- `GET /metrics` reflects the benchmark traffic
 
----
+## Follow-Up
 
-## 3. Monitoring & Observability (MEDIUM PRIORITY)
-
-### Required Components
-
-| Component | Purpose | Tool Suggestion |
-|-----------|---------|-----------------|
-| **Application Metrics** | Track fraud detection rates, latency | Prometheus |
-| **Log Aggregation** | Centralized logging | ELK Stack or Loki |
-| **Error Tracking** | Real-time error alerts | Sentry |
-| **Uptime Monitoring** | Health checks, downtime alerts | Pingdom or UptimeRobot |
-| **Business Metrics** | Decline rates, review queue size | Custom Grafana dashboard |
-
-### Key Metrics to Track
-
-```python
-# Fraud Detection Metrics
-fraud_checks_total  # Counter
-fraud_decisions_total{decision="approve|review|decline"}  # Counter
-fraud_risk_score_sum  # Summary
-fraud_check_duration_ms  # Histogram
-
-# Rule Engine Metrics
-rules_matched_total  # Counter
-rule_evaluation_duration_ms  # Histogram
-
-# Enrichment Metrics
-enrichment_cache_hit_rate  # Gauge
-ip_lookup_duration_ms  # Histogram
-bin_lookup_duration_ms  # Histogram
-
-# Business Metrics
-decline_rate_5m  # Gauge
-review_queue_size  # Gauge
-```
-
-**Estimated Time:** 1-2 days setup  
-**Start After:** App is running in production
-
----
-
-## 4. CI/CD Pipeline (MEDIUM PRIORITY)
-
-### GitHub Actions Workflow
-
-```yaml
-# .github/workflows/ci-cd.yml
-name: CI/CD Pipeline
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.14'
-      - run: pip install -r requirements.txt
-      - run: pip install pytest pytest-cov
-      - run: pytest --cov=backend --cov-report=xml
-      - uses: codecov/codecov-action@v3
-
-  security-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - run: pip install bandit safety
-      - run: bandit -r backend/
-      - run: safety check
-
-  deploy:
-    needs: [test, security-scan]
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Deploy to production
-        run: echo "Add deployment steps here"
-```
-
-**Estimated Time:** 2-3 hours  
-**Start After:** Tests are written
-
----
-
-## 5. Documentation (LOW PRIORITY - Mostly Done)
-
-| Document | Status | Location |
-|----------|--------|----------|
-| API Documentation | ✅ Complete | [API_DOCUMENTATION.md](file:///c:/Users/91628/.trae/FraudSentinal/backend/API_DOCUMENTATION.md) |
-| Security Audit | ✅ Complete | [SECURITY_AUDIT.md](file:///c:/Users/91628/.trae/FraudSentinal/backend/SECURITY_AUDIT.md) |
-| Production Readiness | ✅ Complete | [PRODUCTION_READINESS.md](file:///c:/Users/91628/.trae/FraudSentinal/backend/PRODUCTION_READINESS.md) |
-| README | ⚠️ Needs Update | `README.md` |
-| Deployment Guide | ❌ Not Started | `DEPLOYMENT.md` |
-
----
-
-## Action Plan
-
-### Immediate (Today)
-- [ ] Update README with current features and rollout flags
-- [ ] Commit all changes to git
-
-### Newly Added Rollout Notes
-- Run the latest Alembic migrations before enabling new device-fingerprinting flows
-- Set `REDIS_URL` in production to enable shared enrichment caching
-- Keep `ENABLE_ML_FRAUD_SCORING` disabled until you intentionally want hybrid scoring
-- Use `GET /health` and `GET /metrics` during deployment verification
-- Review targeted regression tests for:
-  - caching and rule optimizations
-  - persisted velocity scoring
-  - device fingerprinting
-  - hybrid scoring
-  - background fraud-check audit logging
-
-### Short Term (When You Get Your Device)
-1. **Install PostgreSQL** (2-3 hours)
-   - Install PostgreSQL
-   - Create database
-   - Update connection string
-   - Run migrations
-
-2. **Write Tests** (3-5 days)
-   - Expand unit tests for remaining services
-   - Expand integration tests for API edge cases
-   - Add load tests for `<100ms` SLA validation
-
-3. **Setup CI/CD** (1 day)
-   - GitHub Actions workflow
-   - Automated testing
-   - Security scans
-
-### Medium Term (Before Production)
-1. **Monitoring** (1-2 days)
-   - Wire `/metrics` into Prometheus scraping or your preferred collector
-   - Grafana dashboards
-   - Sentry error tracking
-
-2. **Infrastructure**
-   - Cloud deployment (AWS/GCP/Azure)
-   - Docker containers
-   - Kubernetes (optional)
-
-3. **Documentation**
-   - Deployment guide
-   - Runbooks
-   - On-call procedures
-
----
-
-## Bottom Line
-
-**You can ship the code today.** It's production-quality code with:
-- ✅ All core features implemented
-- ✅ Security audit passed
-- ✅ Complete API documentation
-- ✅ Fraud performance and detection improvements implemented
-- ✅ Targeted regression coverage for new scoring paths
-- ✅ Lightweight runtime metrics for fraud-check visibility
-
-**What's blocking production deployment:**
-- PostgreSQL migration (needs your own device)
-- Full load testing in your target environment
-- External monitoring/alerting integration
-
-**Recommendation:**
-1. Commit everything to git now
-2. When you get your device, migrate to PostgreSQL
-3. Add tests while the code is fresh
-4. Then deploy with confidence
-
----
-
-*End of Production Readiness Guide*
+- Run the same script against staging and production-like infrastructure
+- Capture benchmark output alongside deploy artifacts
+- Add external metrics scraping and dashboards if you need long-term latency monitoring
