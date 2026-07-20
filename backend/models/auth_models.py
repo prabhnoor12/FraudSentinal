@@ -6,7 +6,7 @@ from database import Base
 
 
 class TokenBlacklist(Base):
-    """Stores revoked authentication tokens."""
+    """Stores fingerprints of revoked authentication tokens."""
 
     __tablename__ = "token_blacklist"
 
@@ -18,7 +18,7 @@ class TokenBlacklist(Base):
 
 
 class RefreshToken(Base):
-    """Stores refresh tokens associated with a user."""
+    """Stores fingerprints of refresh tokens associated with a user."""
 
     __tablename__ = "refresh_tokens"
 
@@ -31,7 +31,7 @@ class RefreshToken(Base):
 
 
 class PasswordResetToken(Base):
-    """Stores password reset requests for a user."""
+    """Stores fingerprints of password reset requests for a user."""
 
     __tablename__ = "password_reset_tokens"
 

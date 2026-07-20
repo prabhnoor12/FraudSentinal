@@ -30,6 +30,7 @@ from routes.usage_routes import router as usage_router
 from routes.user_routes import router as user_router
 from routes.user_tracking_routes import router as user_tracking_router
 from services import fraud_rule_service
+from services.mfa_service import get_mfa_cipher
 from utils.security_utils import validate_secret_key
 from utils.exception_handling_utils import (
     AppException,
@@ -54,10 +55,11 @@ async def lifespan(app: FastAPI):
     # 1. Validate Security Configuration
     try:
         validate_secret_key(SECRET_KEY)
+        get_mfa_cipher()
     except ValueError as e:
         logger.critical(f"CRITICAL SECURITY CONFIGURATION ERROR: {str(e)}")
         logger.critical(
-            "Application startup aborted due to missing or weak SECRET_KEY."
+            "Application startup aborted due to invalid security configuration."
         )
         sys.exit(1)
 

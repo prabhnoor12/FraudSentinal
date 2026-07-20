@@ -14,14 +14,20 @@ load_dotenv()
 
 from models.user_models import User
 from utils.exception_handling_utils import ValidationError
+from utils.security_utils import derive_fernet_key
 
-# Fernet key for encrypting MFA secrets
-MFA_ENCRYPTION_KEY = os.getenv("MFA_ENCRYPTION_KEY")
-if MFA_ENCRYPTION_KEY:
-    fernet = Fernet(MFA_ENCRYPTION_KEY.encode())
-else:
-    # Fallback for development only, should be strictly enforced in prod
-    fernet = None
+
+def get_mfa_cipher() -> Fernet:
+    """Return the cipher used to protect stored MFA secrets."""
+    key = os.getenv("MFA_ENCRYPTION_KEY")
+    if key:
+        return Fernet(key.encode())
+
+    secret_key = os.getenv("SECRET_KEY")
+    if secret_key:
+        return Fernet(derive_fernet_key(secret_key).encode())
+
+    raise ValueError("MFA encryption is not configured")
 
 
 class MFAService:
@@ -53,11 +59,8 @@ class MFAService:
         if not totp.verify(code):
             raise ValidationError("Invalid MFA verification code")
 
-        # Encrypt secret
-        if fernet:
-            encrypted_secret = fernet.encrypt(secret.encode()).decode()
-        else:
-            encrypted_secret = secret  # Insecure fallback
+        cipher = get_mfa_cipher()
+        encrypted_secret = cipher.encrypt(secret.encode()).decode()
 
         # Generate backup codes
         backup_codes = [pyotp.random_base32()[:8] for _ in range(5)]
@@ -81,12 +84,8 @@ class MFAService:
         if not user.mfa_enabled or not user.mfa_secret:
             return False
 
-        # Decrypt secret
         try:
-            if fernet:
-                secret = fernet.decrypt(user.mfa_secret.encode()).decode()
-            else:
-                secret = user.mfa_secret
+            secret = get_mfa_cipher().decrypt(user.mfa_secret.encode()).decode()
         except Exception:
             return False
 

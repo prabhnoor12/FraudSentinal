@@ -9,6 +9,7 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp
+from utils.security_utils import get_request_client_ip
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -115,19 +116,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return any(path.startswith(prefix) for prefix in self.exempt_prefixes)
 
     def _default_key(self, request: Request) -> str:
-        forwarded_for = request.headers.get("x-forwarded-for")
-        if forwarded_for:
-            return forwarded_for.split(",")[0].strip()
-
-        real_ip = request.headers.get("x-real-ip")
-        if real_ip:
-            return real_ip.strip()
-
-        client = request.client
-        if client is not None and client.host:
-            return client.host
-
-        return "unknown"
+        return get_request_client_ip(request)
 
     def _prune_history(self, client_key: str, now: float) -> None:
         history = self._request_history.get(client_key)

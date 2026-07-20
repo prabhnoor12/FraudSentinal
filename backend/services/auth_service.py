@@ -185,7 +185,11 @@ def request_password_reset(
         token=reset_token_value,
         expires_at=expires_at,
     )
-    return {"message": "Password reset token created", "reset_token": reset_token_value}
+
+    response = {"message": "If the account exists, a reset token has been created"}
+    if is_testing():
+        response["reset_token"] = reset_token_value
+    return response
 
 
 def confirm_password_reset(

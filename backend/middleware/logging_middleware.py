@@ -8,6 +8,7 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 from starlette.types import ASGIApp
+from utils.security_utils import get_request_client_ip
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
@@ -106,19 +107,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         return f"req-{int(time.time() * 1000000)}"
 
     def _get_client_ip(self, request: Request) -> str:
-        forwarded_for = request.headers.get("x-forwarded-for")
-        if forwarded_for:
-            return forwarded_for.split(",")[0].strip()
-
-        real_ip = request.headers.get("x-real-ip")
-        if real_ip:
-            return real_ip.strip()
-
-        client = request.client
-        if client is not None and client.host:
-            return client.host
-
-        return "unknown"
+        return get_request_client_ip(request)
 
     def _sanitize_headers(self, headers: Any) -> dict[str, str]:
         if isinstance(headers, dict):

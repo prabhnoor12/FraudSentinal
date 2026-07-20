@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
+import os
 import re
 import secrets
 import string
+from ipaddress import ip_address, ip_network
 from typing import Any, Mapping, Optional
 from urllib.parse import urlparse
 
@@ -37,6 +40,24 @@ def hash_value(value: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError("Value must be a non-empty string")
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def fingerprint_token(token: str, *, secret: Optional[str] = None) -> str:
+    """Create a keyed fingerprint for stored tokens without persisting raw values."""
+    if not isinstance(token, str) or not token.strip():
+        raise ValueError("Token must be a non-empty string")
+
+    fingerprint_secret = (
+        secret
+        or os.getenv("TOKEN_HASH_SECRET")
+        or os.getenv("SECRET_KEY")
+        or "fraudsentinel-dev-token-secret"
+    )
+    return hmac.new(
+        fingerprint_secret.encode("utf-8"),
+        token.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
 
 
 COMMON_WEAK_PASSWORDS = {
@@ -119,6 +140,14 @@ def validate_secret_key(key: Optional[str]) -> None:
         raise ValueError(
             "SECRET_KEY must contain uppercase, lowercase, numbers, and special symbols"
         )
+
+
+def derive_fernet_key(secret: str) -> str:
+    """Derive a valid Fernet key from an application secret."""
+    if not isinstance(secret, str) or not secret.strip():
+        raise ValueError("Secret must be a non-empty string")
+    digest = hashlib.sha256(secret.encode("utf-8")).digest()
+    return base64.urlsafe_b64encode(digest).decode("ascii")
 
 
 def validate_email(email: str) -> bool:
@@ -250,11 +279,63 @@ def verify_hmac_signature(payload: str | bytes, signature: str, secret: str) -> 
     return constant_time_compare(signature, expected_signature)
 
 
+def get_trusted_proxy_networks() -> list[str]:
+    """Return configured trusted proxy networks from the environment."""
+    configured = os.getenv("TRUSTED_PROXY_NETWORKS", "")
+    values = [item.strip() for item in configured.split(",") if item.strip()]
+    return values
+
+
+def is_trusted_proxy_host(host: Optional[str]) -> bool:
+    """Return True when the immediate client is a configured trusted proxy."""
+    if not host:
+        return False
+
+    trusted_networks = get_trusted_proxy_networks()
+    if not trusted_networks:
+        return False
+
+    try:
+        host_ip = ip_address(host)
+    except ValueError:
+        return False
+
+    for network in trusted_networks:
+        try:
+            if host_ip in ip_network(network, strict=False):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
+def get_request_client_ip(request: Any) -> str:
+    """Resolve the client IP, trusting forwarded headers only from known proxies."""
+    client_host = getattr(getattr(request, "client", None), "host", None)
+    if is_trusted_proxy_host(client_host):
+        forwarded_for = request.headers.get("x-forwarded-for")
+        if forwarded_for:
+            forwarded_ip = forwarded_for.split(",")[0].strip()
+            if forwarded_ip:
+                return forwarded_ip
+
+        real_ip = request.headers.get("x-real-ip")
+        if real_ip:
+            return real_ip.strip()
+
+    if client_host:
+        return client_host
+
+    return "unknown"
+
+
 __all__ = [
     "generate_api_key",
     "constant_time_compare",
     "hash_value",
+    "fingerprint_token",
     "is_strong_password",
+    "derive_fernet_key",
     "validate_email",
     "normalize_email",
     "sanitize_input",
@@ -266,4 +347,7 @@ __all__ = [
     "generate_secret_key",
     "generate_hmac_signature",
     "verify_hmac_signature",
+    "get_trusted_proxy_networks",
+    "is_trusted_proxy_host",
+    "get_request_client_ip",
 ]
