@@ -184,15 +184,26 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             block_duration_seconds=limit_config.block_duration_seconds,
         )
         if not decision.allowed:
+            request_id = getattr(request.state, "request_id", "")
             headers = {
                 "Retry-After": str(decision.retry_after),
                 "X-RateLimit-Limit": str(limit_config.calls),
                 "X-RateLimit-Remaining": "0",
                 "X-RateLimit-Reset": str(decision.reset_timestamp),
             }
+            if request_id:
+                headers["X-Request-ID"] = request_id
             return JSONResponse(
                 status_code=429,
-                content={"detail": self.message, "retry_after": decision.retry_after},
+                content={
+                    "success": False,
+                    "error": {
+                        "code": "rate_limit_exceeded",
+                        "message": self.message,
+                        "details": {"retry_after": decision.retry_after},
+                        "request_id": request_id,
+                    },
+                },
                 headers=headers,
             )
 

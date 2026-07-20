@@ -1,11 +1,15 @@
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
-from auth import get_current_org_id, oauth2_scheme
+from auth_dependencies import (
+    get_current_org_id,
+    get_current_principal,
+    require_scopes,
+)
 from database import get_db
 from schemas.audit_schemas import AuditContext
 from schemas.transaction_schemas import TransactionCreate, TransactionOut
-from services import audit_service, auth_service, transaction_service
+from services import audit_service, transaction_service
 
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
@@ -14,12 +18,10 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 def get_audit_ctx(
     request: Request,
     org_id: int = Depends(get_current_org_id),
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
+    principal=Depends(get_current_principal),
 ) -> AuditContext:
-    user = auth_service.get_authenticated_user_from_token(db, token)
     return AuditContext(
-        user_id=user.id,
+        user_id=getattr(principal.user, "id", None),
         organisation_id=org_id,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
@@ -30,6 +32,7 @@ def get_audit_ctx(
 def list_transactions(
     user_id: int | None = None,
     limit: int = 100,
+    principal=Depends(require_scopes("transactions:read")),
     org_id: int = Depends(get_current_org_id),
     db: Session = Depends(get_db),
 ):
@@ -44,6 +47,7 @@ def list_transactions(
 @router.post("", response_model=TransactionOut, status_code=status.HTTP_201_CREATED)
 def create_transaction(
     payload: TransactionCreate,
+    principal=Depends(require_scopes("transactions:write")),
     org_id: int = Depends(get_current_org_id),
     audit_ctx: AuditContext = Depends(get_audit_ctx),
     db: Session = Depends(get_db),
@@ -57,6 +61,7 @@ def create_transaction(
 @router.get("/{transaction_id}", response_model=TransactionOut)
 def get_transaction(
     transaction_id: int,
+    principal=Depends(require_scopes("transactions:read")),
     org_id: int = Depends(get_current_org_id),
     audit_ctx: AuditContext = Depends(get_audit_ctx),
     db: Session = Depends(get_db),

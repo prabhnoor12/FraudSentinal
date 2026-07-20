@@ -20,11 +20,13 @@ class AppException(Exception):
         message: str,
         *,
         status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
+        error_code: str = "internal_error",
         details: Optional[dict[str, Any]] = None,
     ) -> None:
         super().__init__(message)
         self.message = message
         self.status_code = status_code
+        self.error_code = error_code
         self.details = details or {}
 
 
@@ -38,7 +40,10 @@ class ValidationError(AppException):
         details: Optional[dict[str, Any]] = None,
     ) -> None:
         super().__init__(
-            message, status_code=status.HTTP_400_BAD_REQUEST, details=details
+            message,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            error_code="validation_error",
+            details=details,
         )
 
 
@@ -52,7 +57,10 @@ class NotFoundError(AppException):
         details: Optional[dict[str, Any]] = None,
     ) -> None:
         super().__init__(
-            message, status_code=status.HTTP_404_NOT_FOUND, details=details
+            message,
+            status_code=status.HTTP_404_NOT_FOUND,
+            error_code="not_found",
+            details=details,
         )
 
 
@@ -63,7 +71,10 @@ class UnauthorizedError(AppException):
         self, message: str = "Unauthorized", *, details: Optional[dict[str, Any]] = None
     ) -> None:
         super().__init__(
-            message, status_code=status.HTTP_401_UNAUTHORIZED, details=details
+            message,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            error_code="unauthorized",
+            details=details,
         )
 
 
@@ -74,7 +85,10 @@ class ForbiddenError(AppException):
         self, message: str = "Forbidden", *, details: Optional[dict[str, Any]] = None
     ) -> None:
         super().__init__(
-            message, status_code=status.HTTP_403_FORBIDDEN, details=details
+            message,
+            status_code=status.HTTP_403_FORBIDDEN,
+            error_code="forbidden",
+            details=details,
         )
 
 
@@ -84,7 +98,12 @@ class ConflictError(AppException):
     def __init__(
         self, message: str = "Conflict", *, details: Optional[dict[str, Any]] = None
     ) -> None:
-        super().__init__(message, status_code=status.HTTP_409_CONFLICT, details=details)
+        super().__init__(
+            message,
+            status_code=status.HTTP_409_CONFLICT,
+            error_code="conflict",
+            details=details,
+        )
 
 
 class ExternalServiceError(AppException):
@@ -97,82 +116,124 @@ class ExternalServiceError(AppException):
         details: Optional[dict[str, Any]] = None,
     ) -> None:
         super().__init__(
-            message, status_code=status.HTTP_502_BAD_GATEWAY, details=details
+            message,
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            error_code="external_service_error",
+            details=details,
         )
 
 
 async def handle_app_exception(request: Request, exc: AppException) -> JSONResponse:
     """Convert application exceptions into JSON responses."""
+    request_id = getattr(request.state, "request_id", "")
     payload = {
         "success": False,
-        "error": exc.message,
-        "status_code": exc.status_code,
-        "details": exc.details,
+        "error": {
+            "code": exc.error_code,
+            "message": exc.message,
+            "details": exc.details,
+            "request_id": request_id,
+        },
     }
     logger.warning(
         "application_exception",
         extra={
+            "request_id": request_id,
             "path": request.url.path,
             "status_code": exc.status_code,
+            "error_code": exc.error_code,
             "error": exc.message,
             "details": exc.details,
         },
     )
-    return JSONResponse(status_code=exc.status_code, content=payload)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=payload,
+        headers={"X-Request-ID": request_id} if request_id else None,
+    )
 
 
 async def handle_http_exception(request: Request, exc: HTTPException) -> JSONResponse:
     """Convert FastAPI HTTP exceptions into JSON responses."""
+    request_id = getattr(request.state, "request_id", "")
+    details = exc.detail if isinstance(exc.detail, dict) else {}
+    message = exc.detail if isinstance(exc.detail, str) else "Request failed"
     payload = {
         "success": False,
-        "error": exc.detail if isinstance(exc.detail, str) else "Request failed",
-        "status_code": exc.status_code,
-        "details": {},
+        "error": {
+            "code": "http_error",
+            "message": message,
+            "details": details,
+            "request_id": request_id,
+        },
     }
     logger.warning(
         "http_exception",
         extra={
+            "request_id": request_id,
             "path": request.url.path,
             "status_code": exc.status_code,
-            "error": payload["error"],
+            "error": message,
         },
     )
-    return JSONResponse(status_code=exc.status_code, content=payload)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=payload,
+        headers={"X-Request-ID": request_id} if request_id else None,
+    )
 
 
 async def handle_validation_exception(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
     """Convert request validation errors into a structured JSON response."""
+    request_id = getattr(request.state, "request_id", "")
     payload = {
         "success": False,
-        "error": "Validation failed",
-        "status_code": status.HTTP_422_UNPROCESSABLE_ENTITY,
-        "details": {
-            "errors": exc.errors(),
+        "error": {
+            "code": "schema_validation_error",
+            "message": "Validation failed",
+            "details": {
+                "errors": exc.errors(),
+            },
+            "request_id": request_id,
         },
     }
     logger.warning(
-        "validation_exception", extra={"path": request.url.path, "errors": exc.errors()}
+        "validation_exception",
+        extra={
+            "request_id": request_id,
+            "path": request.url.path,
+            "errors": exc.errors(),
+        },
     )
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content=payload
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=payload,
+        headers={"X-Request-ID": request_id} if request_id else None,
     )
 
 
 async def handle_unexpected_exception(request: Request, exc: Exception) -> JSONResponse:
     """Convert unexpected exceptions into a safe JSON response."""
+    request_id = getattr(request.state, "request_id", "")
     payload = {
         "success": False,
-        "error": "Internal server error",
-        "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-        "details": {},
+        "error": {
+            "code": "internal_server_error",
+            "message": "Internal server error",
+            "details": {},
+            "request_id": request_id,
+        },
     }
     logger.exception(
-        "unexpected_exception", extra={"path": request.url.path, "error": str(exc)}
+        "unexpected_exception",
+        extra={"request_id": request_id, "path": request.url.path, "error": str(exc)},
     )
     return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=payload
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content=payload,
+        headers={"X-Request-ID": request_id} if request_id else None,
     )
 
 

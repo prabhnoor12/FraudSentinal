@@ -1,10 +1,12 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
+
+from schemas.api_schemas import ORMStrictSchema, StrictSchema
 
 
-class UsageEventBase(BaseModel):
+class UsageEventBase(StrictSchema):
     user_id: int
     organisation_id: int
     event_type: str
@@ -18,15 +20,15 @@ class UsageEventCreate(UsageEventBase):
     pass
 
 
-class UsageEventOut(UsageEventBase):
+class UsageEventOut(ORMStrictSchema):
     id: int
     recorded_at: datetime
     billed_at: Optional[datetime] = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
 
 
-class UsageSummaryBase(BaseModel):
+class UsageSummaryBase(StrictSchema):
     user_id: int
     organisation_id: int
     period_start: datetime
@@ -39,8 +41,8 @@ class UsageSummaryCreate(UsageSummaryBase):
     pass
 
 
-class UsageSummaryOut(UsageSummaryBase):
+class UsageSummaryOut(ORMStrictSchema):
     id: int
     created_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(extra="forbid", from_attributes=True)

@@ -51,7 +51,7 @@ import { ApiError, Decision, ReviewCase, RiskSignal, Transaction, api } from '..
         </div>
 
         <div class="fs-grid">
-          <div class="fs-card">
+          <div class="fs-card" id="transaction-summary">
             <div class="fs-card-header">
               <h2>Transaction Context</h2>
             </div>
@@ -70,6 +70,7 @@ import { ApiError, Decision, ReviewCase, RiskSignal, Transaction, api } from '..
           <div class="fs-card">
             <div class="fs-card-header">
               <h2>Fraud Decision</h2>
+              <a class="fs-back-link" href="#transaction-summary">Back to originating transaction</a>
             </div>
 
             @if (decisions().length === 0) {
@@ -111,6 +112,7 @@ import { ApiError, Decision, ReviewCase, RiskSignal, Transaction, api } from '..
           <div class="fs-card">
             <div class="fs-card-header">
               <h2>Risk Signals</h2>
+              <a class="fs-back-link" href="#transaction-summary">Back to originating transaction</a>
             </div>
 
             @if (riskSignals().length === 0) {

@@ -99,6 +99,9 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         return any(path.startswith(prefix) for prefix in self.exclude_prefixes)
 
     def _get_request_id(self, request: Request) -> str:
+        request_id = getattr(request.state, "request_id", None)
+        if request_id:
+            return request_id
         request_id = request.headers.get("x-request-id") or request.headers.get(
             "x-correlation-id"
         )

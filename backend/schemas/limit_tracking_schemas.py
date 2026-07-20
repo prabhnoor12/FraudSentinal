@@ -1,10 +1,12 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
+
+from schemas.api_schemas import ORMStrictSchema, StrictSchema
 
 
-class UsageLimitBase(BaseModel):
+class UsageLimitBase(StrictSchema):
     user_id: Optional[int] = None
     organisation_id: Optional[int] = None
     limit_type: str
@@ -17,15 +19,15 @@ class UsageLimitCreate(UsageLimitBase):
     pass
 
 
-class UsageLimitOut(UsageLimitBase):
+class UsageLimitOut(ORMStrictSchema):
     id: int
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
 
 
-class LimitUsageRecordBase(BaseModel):
+class LimitUsageRecordBase(StrictSchema):
     usage_limit_id: int
     current_usage: float = 0.0
     period_start: datetime
@@ -36,8 +38,8 @@ class LimitUsageRecordCreate(LimitUsageRecordBase):
     pass
 
 
-class LimitUsageRecordOut(LimitUsageRecordBase):
+class LimitUsageRecordOut(ORMStrictSchema):
     id: int
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(extra="forbid", from_attributes=True)

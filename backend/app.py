@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
@@ -10,12 +10,15 @@ load_dotenv()
 from auth import SECRET_KEY
 from database import SessionLocal
 from middleware.ip_limiting_middleware import IPLimitMiddleware
+from middleware.idempotency_middleware import IdempotencyMiddleware
 from middleware.logging_middleware import LoggingMiddleware
 from middleware.rate_limiting_middleware import RateLimitMiddleware, RateLimitOverride
+from middleware.request_context_middleware import RequestContextMiddleware
 from middleware.security_headers_middleware import SecurityHeadersMiddleware
 from redis import build_rate_limit_store
 from routes.auth_routes import router as auth_router
 from routes.audit_routes import router as audit_router
+from routes.billing_routes import router as billing_router
 from routes.decision_routes import router as decision_router
 from routes.enrichment_routes import router as enrichment_router
 from routes.fraud_check_routes import router as fraud_check_router
@@ -76,7 +79,14 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="FraudSentinal Backend", version="0.1.0", lifespan=lifespan)
+app = FastAPI(
+    title="FraudSentinal Public API",
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+)
 
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(LoggingMiddleware, exclude_paths={"/health"})
@@ -89,37 +99,37 @@ if not is_testing():
         rate_limit_store=build_rate_limit_store("fraudsentinel:rate_limit"),
         endpoint_overrides=(
             RateLimitOverride(
-                path="/auth/login",
+                path="/api/v1/auth/login",
                 calls=10,
                 window_seconds=60,
                 block_duration_seconds=300,
             ),
             RateLimitOverride(
-                path="/auth/password-reset/request",
+                path="/api/v1/auth/password-reset/request",
                 calls=5,
                 window_seconds=300,
                 block_duration_seconds=600,
             ),
             RateLimitOverride(
-                path="/auth/password-reset/confirm",
+                path="/api/v1/auth/password-reset/confirm",
                 calls=8,
                 window_seconds=300,
                 block_duration_seconds=600,
             ),
             RateLimitOverride(
-                path="/check-fraud",
+                path="/api/v1/check-fraud",
                 calls=30,
                 window_seconds=60,
                 block_duration_seconds=180,
             ),
             RateLimitOverride(
-                path="/enrichment/seed",
+                path="/api/v1/enrichment/seed",
                 calls=3,
                 window_seconds=300,
                 block_duration_seconds=900,
             ),
             RateLimitOverride(
-                path="/enrichment/signals/test",
+                path="/api/v1/enrichment/signals/test",
                 calls=20,
                 window_seconds=60,
                 block_duration_seconds=180,
@@ -133,29 +143,44 @@ if not is_testing():
         exempt_paths={"/health"},
         rate_limit_store=build_rate_limit_store("fraudsentinel:ip_limit"),
     )
+app.add_middleware(
+    IdempotencyMiddleware,
+    enforced_prefixes=(
+        "/api/v1/check-fraud",
+        "/api/v1/transactions",
+        "/api/v1/usage",
+        "/api/v1/user-tracking",
+        "/api/v1/limit-tracking",
+        "/api/v1/billing",
+    ),
+)
+app.add_middleware(RequestContextMiddleware)
 
 app.add_exception_handler(AppException, handle_app_exception)
 app.add_exception_handler(HTTPException, handle_http_exception)
 app.add_exception_handler(RequestValidationError, handle_validation_exception)
 app.add_exception_handler(Exception, handle_unexpected_exception)
 
-app.include_router(auth_router)
-app.include_router(audit_router)
-app.include_router(mfa_router)
-app.include_router(user_router)
-app.include_router(organisation_router)
-app.include_router(session_router)
-app.include_router(settings_router)
-app.include_router(usage_router)
-app.include_router(limit_tracking_router)
-app.include_router(user_tracking_router)
-app.include_router(transaction_router)
-app.include_router(decision_router)
-app.include_router(enrichment_router)
-app.include_router(fraud_check_router)
-app.include_router(fraud_rule_router)
-app.include_router(risk_signal_router)
-app.include_router(review_case_router)
+api_v1 = APIRouter(prefix="/api/v1")
+api_v1.include_router(auth_router)
+api_v1.include_router(audit_router)
+api_v1.include_router(mfa_router)
+api_v1.include_router(user_router)
+api_v1.include_router(organisation_router)
+api_v1.include_router(session_router)
+api_v1.include_router(settings_router)
+api_v1.include_router(usage_router)
+api_v1.include_router(limit_tracking_router)
+api_v1.include_router(user_tracking_router)
+api_v1.include_router(transaction_router)
+api_v1.include_router(decision_router)
+api_v1.include_router(enrichment_router)
+api_v1.include_router(fraud_check_router)
+api_v1.include_router(fraud_rule_router)
+api_v1.include_router(risk_signal_router)
+api_v1.include_router(review_case_router)
+api_v1.include_router(billing_router)
+app.include_router(api_v1)
 
 
 import logging
@@ -169,9 +194,19 @@ def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/api/v1/health")
+def v1_health_check() -> dict[str, str]:
+    return {"status": "ok", "version": "v1"}
+
+
 @app.get("/metrics")
 def metrics() -> dict[str, object]:
     return {
         "status": "ok",
         "fraud_detection": fraud_metrics.snapshot(),
     }
+
+
+@app.get("/api/v1/metrics")
+def v1_metrics() -> dict[str, object]:
+    return metrics()

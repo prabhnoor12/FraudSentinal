@@ -1,9 +1,13 @@
 from fastapi import APIRouter, Body, Depends, Request, status
 from sqlalchemy.orm import Session
 
-from auth import oauth2_scheme
+from auth_dependencies import get_current_user
 from database import get_db
 from schemas.auth_schemas import (
+    APIKeyAlertOut,
+    APIKeyCreateRequest,
+    APIKeyOut,
+    APIKeyRotateRequest,
     AuthUserOut,
     LoginRequest,
     MFALoginRequest,
@@ -11,6 +15,8 @@ from schemas.auth_schemas import (
     PasswordResetRequest,
     RefreshTokenRequest,
     RegisterRequest,
+    ServiceAccountCreate,
+    ServiceAccountOut,
     TokenResponse,
 )
 from services.audit_service import AuditService
@@ -27,13 +33,6 @@ def _audit_context(request: Request) -> dict[str, str | None]:
         "ip_address": get_request_client_ip(request),
         "user_agent": request.headers.get("user-agent"),
     }
-
-
-def get_authenticated_user(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
-):
-    return auth_service.get_authenticated_user_from_token(db, token)
 
 
 @router.post(
@@ -118,10 +117,12 @@ def refresh_tokens(
 def logout(
     request: Request,
     refresh_token: str | None = Body(default=None, embed=True),
-    token: str = Depends(oauth2_scheme),
+    current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    current_user = auth_service.get_authenticated_user_from_token(db, token)
+    token = request.headers.get("Authorization", "").replace("Bearer ", "", 1).strip()
+    if not token:
+        raise UnauthorizedError("Bearer token is required for logout")
     auth_service.logout_user(db, access_token=token, refresh_token_value=refresh_token)
     AuditService.log_security_event(
         db,
@@ -137,7 +138,7 @@ def logout(
 
 
 @router.get("/me", response_model=AuthUserOut)
-def me(current_user=Depends(get_authenticated_user)):
+def me(current_user=Depends(get_current_user)):
     return current_user
 
 
@@ -183,3 +184,88 @@ def confirm_password_reset(
         **_audit_context(request),
     )
     return result
+
+
+@router.post(
+    "/service-accounts",
+    response_model=ServiceAccountOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_service_account(
+    payload: ServiceAccountCreate,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return auth_service.create_service_account_service(db, current_user, payload)
+
+
+@router.get("/service-accounts", response_model=list[ServiceAccountOut])
+def list_service_accounts(
+    current_user=Depends(get_current_user), db: Session = Depends(get_db)
+):
+    return auth_service.list_service_accounts_service(db, current_user)
+
+
+@router.post(
+    "/service-accounts/{service_account_id}/keys",
+    response_model=APIKeyOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_service_account_api_key(
+    service_account_id: int,
+    payload: APIKeyCreateRequest,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return auth_service.create_service_account_api_key_service(
+        db, current_user, service_account_id, payload
+    )
+
+
+@router.get(
+    "/service-accounts/{service_account_id}/keys",
+    response_model=list[APIKeyOut],
+)
+def list_service_account_api_keys(
+    service_account_id: int,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return auth_service.list_service_account_api_keys_service(
+        db, current_user, service_account_id
+    )
+
+
+@router.post(
+    "/service-accounts/{service_account_id}/keys/{api_key_id}/rotate",
+    response_model=APIKeyOut,
+)
+def rotate_service_account_api_key(
+    service_account_id: int,
+    api_key_id: int,
+    payload: APIKeyRotateRequest,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return auth_service.rotate_service_account_api_key_service(
+        db, current_user, service_account_id, api_key_id, payload
+    )
+
+
+@router.post("/service-accounts/{service_account_id}/keys/{api_key_id}/revoke")
+def revoke_service_account_api_key(
+    service_account_id: int,
+    api_key_id: int,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return auth_service.revoke_service_account_api_key_service(
+        db, current_user, service_account_id, api_key_id
+    )
+
+
+@router.get("/service-accounts/rotation-alerts", response_model=list[APIKeyAlertOut])
+def list_rotation_alerts(
+    current_user=Depends(get_current_user), db: Session = Depends(get_db)
+):
+    return auth_service.list_api_key_rotation_alerts_service(db, current_user)

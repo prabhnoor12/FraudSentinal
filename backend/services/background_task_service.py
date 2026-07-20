@@ -8,7 +8,7 @@ from services.audit_service import AuditService
 def log_fraud_check_completed(
     *,
     bind,
-    user_id: int,
+    user_id: int | None,
     organisation_id: int,
     transaction_id: int,
     decision_id: int,

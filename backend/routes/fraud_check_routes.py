@@ -2,7 +2,11 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Request
 import time
 from sqlalchemy.orm import Session
 
-from auth import get_current_org_id, oauth2_scheme
+from auth_dependencies import (
+    get_current_org_id,
+    get_current_principal,
+    require_scopes,
+)
 from database import get_db
 from schemas.audit_schemas import AuditContext
 from schemas.fraud_check_schemas import FraudCheckRequest, FraudCheckResponse
@@ -18,21 +22,18 @@ router = APIRouter(prefix="/check-fraud", tags=["check-fraud"])
 
 
 def require_auth(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
+    principal=Depends(require_scopes("fraud:check")),
 ):
-    return auth_service.get_authenticated_user_from_token(db, token)
+    return principal
 
 
 def get_audit_ctx(
     request: Request,
     org_id: int = Depends(get_current_org_id),
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
+    principal=Depends(get_current_principal),
 ) -> AuditContext:
-    user = auth_service.get_authenticated_user_from_token(db, token)
     return AuditContext(
-        user_id=user.id,
+        user_id=getattr(principal.user, "id", None),
         organisation_id=org_id,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
@@ -45,6 +46,7 @@ def check_fraud(
     request: Request,
     payload: FraudCheckRequest,
     org_id: int = Depends(get_current_org_id),
+    principal=Depends(require_scopes("fraud:check")),
     audit_ctx: AuditContext = Depends(get_audit_ctx),
     db: Session = Depends(get_db),
 ):

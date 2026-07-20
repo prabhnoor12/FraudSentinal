@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from auth import oauth2_scheme
+from auth_dependencies import get_current_principal, require_scopes
 from database import get_db
 from schemas.limit_tracking_schemas import (
     LimitUsageRecordCreate,
@@ -9,21 +9,22 @@ from schemas.limit_tracking_schemas import (
     UsageLimitCreate,
     UsageLimitOut,
 )
-from services import auth_service, limit_tracking_service
+from services import limit_tracking_service
 
 
 router = APIRouter(prefix="/limit-tracking", tags=["limit-tracking"])
 
 
 def require_auth(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
+    principal=Depends(get_current_principal),
 ):
-    return auth_service.get_authenticated_user_from_token(db, token)
+    return principal
 
 
 @router.get(
-    "/limits", response_model=list[UsageLimitOut], dependencies=[Depends(require_auth)]
+    "/limits",
+    response_model=list[UsageLimitOut],
+    dependencies=[Depends(require_scopes("limits:read"))],
 )
 def list_usage_limits(
     user_id: int | None = None,
@@ -43,7 +44,7 @@ def list_usage_limits(
     "/limits",
     response_model=UsageLimitOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_scopes("limits:write"))],
 )
 def create_usage_limit(payload: UsageLimitCreate, db: Session = Depends(get_db)):
     return limit_tracking_service.create_usage_limit_service(db, payload)
@@ -52,7 +53,7 @@ def create_usage_limit(payload: UsageLimitCreate, db: Session = Depends(get_db))
 @router.get(
     "/records",
     response_model=list[LimitUsageRecordOut],
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_scopes("limits:read"))],
 )
 def list_limit_usage_records(
     usage_limit_id: int | None = None,
@@ -68,7 +69,7 @@ def list_limit_usage_records(
     "/records",
     response_model=LimitUsageRecordOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_scopes("limits:write"))],
 )
 def create_limit_usage_record(
     payload: LimitUsageRecordCreate, db: Session = Depends(get_db)

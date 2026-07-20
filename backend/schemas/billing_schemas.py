@@ -1,10 +1,12 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import ConfigDict
+
+from schemas.api_schemas import ORMStrictSchema, StrictSchema
 
 
-class BillingPlanBase(BaseModel):
+class BillingPlanBase(StrictSchema):
     organisation_id: int
     name: str
     price_per_unit: float = 0.0
@@ -17,15 +19,15 @@ class BillingPlanCreate(BillingPlanBase):
     pass
 
 
-class BillingPlanOut(BillingPlanBase):
+class BillingPlanOut(ORMStrictSchema):
     id: int
     created_at: datetime
     updated_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
 
 
-class BillingRecordBase(BaseModel):
+class BillingRecordBase(StrictSchema):
     user_id: int
     organisation_id: int
     usage_event_id: Optional[int] = None
@@ -42,9 +44,9 @@ class BillingRecordCreate(BillingRecordBase):
     pass
 
 
-class BillingRecordOut(BillingRecordBase):
+class BillingRecordOut(ORMStrictSchema):
     id: int
     created_at: datetime
     billed_at: Optional[datetime] = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(extra="forbid", from_attributes=True)

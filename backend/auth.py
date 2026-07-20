@@ -17,7 +17,7 @@ import uuid
 from joserfc import jwt
 from joserfc.jwk import OctKey
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -43,7 +43,8 @@ except ValueError:
     # app.py will do the final check on startup
     pass
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
 def get_jwt_key() -> OctKey:

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from auth import oauth2_scheme
+from auth_dependencies import get_current_principal, require_scopes
 from database import get_db
 from schemas.usage_schemas import (
     UsageEventCreate,
@@ -9,21 +9,22 @@ from schemas.usage_schemas import (
     UsageSummaryCreate,
     UsageSummaryOut,
 )
-from services import auth_service, usage_service
+from services import usage_service
 
 
 router = APIRouter(prefix="/usage", tags=["usage"])
 
 
 def require_auth(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
+    principal=Depends(get_current_principal),
 ):
-    return auth_service.get_authenticated_user_from_token(db, token)
+    return principal
 
 
 @router.get(
-    "/events", response_model=list[UsageEventOut], dependencies=[Depends(require_auth)]
+    "/events",
+    response_model=list[UsageEventOut],
+    dependencies=[Depends(require_scopes("usage:read"))],
 )
 def list_usage_events(
     user_id: int | None = None,
@@ -41,7 +42,7 @@ def list_usage_events(
     "/events",
     response_model=UsageEventOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_scopes("usage:write"))],
 )
 def create_usage_event(payload: UsageEventCreate, db: Session = Depends(get_db)):
     return usage_service.create_usage_event_service(db, payload)
@@ -50,7 +51,7 @@ def create_usage_event(payload: UsageEventCreate, db: Session = Depends(get_db))
 @router.get(
     "/summaries",
     response_model=list[UsageSummaryOut],
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_scopes("usage:read"))],
 )
 def list_usage_summaries(
     user_id: int | None = None,
@@ -68,7 +69,7 @@ def list_usage_summaries(
     "/summaries",
     response_model=UsageSummaryOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_auth)],
+    dependencies=[Depends(require_scopes("usage:write"))],
 )
 def create_usage_summary(payload: UsageSummaryCreate, db: Session = Depends(get_db)):
     return usage_service.create_usage_summary_service(db, payload)

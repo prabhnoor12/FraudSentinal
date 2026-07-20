@@ -3,8 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator
 
+from schemas.api_schemas import ORMStrictSchema, StrictSchema
 from utils.security_utils import (
     normalize_country_code,
     normalize_ip_address,
@@ -12,7 +13,7 @@ from utils.security_utils import (
 )
 
 
-class TransactionBase(BaseModel):
+class TransactionBase(StrictSchema):
     user_id: int
     organisation_id: int
     external_transaction_id: str | None = Field(default=None, max_length=100)
@@ -69,8 +70,8 @@ class TransactionCreate(TransactionBase):
     pass
 
 
-class TransactionOut(TransactionBase):
+class TransactionOut(ORMStrictSchema):
     id: int
     created_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
