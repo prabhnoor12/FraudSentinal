@@ -1,3 +1,4 @@
+from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session
 
 from models.billing_models import BillingPlan, BillingRecord
@@ -16,12 +17,47 @@ def get_billing_plan_by_id(db: Session, billing_plan_id: int) -> BillingPlan | N
 
 
 def list_billing_plans(
-    db: Session, *, organisation_id: int | None = None
+    db: Session,
+    *,
+    organisation_id: int | None = None,
+    is_active: bool | None = None,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
 ) -> list[BillingPlan]:
     query = db.query(BillingPlan)
     if organisation_id is not None:
         query = query.filter(BillingPlan.organisation_id == organisation_id)
-    return query.order_by(BillingPlan.created_at.desc()).all()
+    if is_active is not None:
+        query = query.filter(BillingPlan.is_active == is_active)
+    order_column = {
+        "created_at": BillingPlan.created_at,
+        "name": BillingPlan.name,
+        "price_per_unit": BillingPlan.price_per_unit,
+        "id": BillingPlan.id,
+    }.get(sort_by, BillingPlan.created_at)
+    order_func = asc if sort_dir == "asc" else desc
+    return (
+        query.order_by(order_func(order_column), desc(BillingPlan.id))
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+
+def count_billing_plans(
+    db: Session,
+    *,
+    organisation_id: int | None = None,
+    is_active: bool | None = None,
+) -> int:
+    query = db.query(func.count(BillingPlan.id))
+    if organisation_id is not None:
+        query = query.filter(BillingPlan.organisation_id == organisation_id)
+    if is_active is not None:
+        query = query.filter(BillingPlan.is_active == is_active)
+    return query.scalar() or 0
 
 
 def update_billing_plan(
@@ -48,10 +84,46 @@ def list_billing_records(
     *,
     user_id: int | None = None,
     organisation_id: int | None = None,
+    status: str | None = None,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
 ) -> list[BillingRecord]:
     query = db.query(BillingRecord)
     if user_id is not None:
         query = query.filter(BillingRecord.user_id == user_id)
     if organisation_id is not None:
         query = query.filter(BillingRecord.organisation_id == organisation_id)
-    return query.order_by(BillingRecord.created_at.desc()).all()
+    if status is not None:
+        query = query.filter(BillingRecord.status == status)
+    order_column = {
+        "created_at": BillingRecord.created_at,
+        "amount": BillingRecord.amount,
+        "billing_period_start": BillingRecord.billing_period_start,
+        "id": BillingRecord.id,
+    }.get(sort_by, BillingRecord.created_at)
+    order_func = asc if sort_dir == "asc" else desc
+    return (
+        query.order_by(order_func(order_column), desc(BillingRecord.id))
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+
+def count_billing_records(
+    db: Session,
+    *,
+    user_id: int | None = None,
+    organisation_id: int | None = None,
+    status: str | None = None,
+) -> int:
+    query = db.query(func.count(BillingRecord.id))
+    if user_id is not None:
+        query = query.filter(BillingRecord.user_id == user_id)
+    if organisation_id is not None:
+        query = query.filter(BillingRecord.organisation_id == organisation_id)
+    if status is not None:
+        query = query.filter(BillingRecord.status == status)
+    return query.scalar() or 0

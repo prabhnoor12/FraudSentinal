@@ -11,8 +11,31 @@ def create_billing_plan_service(db: Session, payload: BillingPlanCreate):
     return billing_crud.create_billing_plan(db, **payload.model_dump())
 
 
-def list_billing_plans_service(db: Session, *, organisation_id: int | None = None):
-    return billing_crud.list_billing_plans(db, organisation_id=organisation_id)
+def list_billing_plans_service(
+    db: Session,
+    *,
+    organisation_id: int | None = None,
+    is_active: bool | None = None,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
+):
+    items = billing_crud.list_billing_plans(
+        db,
+        organisation_id=organisation_id,
+        is_active=is_active,
+        offset=offset,
+        limit=limit,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
+    total = billing_crud.count_billing_plans(
+        db,
+        organisation_id=organisation_id,
+        is_active=is_active,
+    )
+    return items, total
 
 
 def create_billing_record_service(db: Session, payload: BillingRecordCreate):
@@ -36,7 +59,26 @@ def list_billing_records_service(
     *,
     user_id: int | None = None,
     organisation_id: int | None = None,
+    status: str | None = None,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
 ):
-    return billing_crud.list_billing_records(
-        db, user_id=user_id, organisation_id=organisation_id
+    items = billing_crud.list_billing_records(
+        db,
+        user_id=user_id,
+        organisation_id=organisation_id,
+        status=status,
+        offset=offset,
+        limit=limit,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
+    total = billing_crud.count_billing_records(
+        db,
+        user_id=user_id,
+        organisation_id=organisation_id,
+        status=status,
+    )
+    return items, total

@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import ConfigDict
 
-from schemas.api_schemas import StrictSchema
+from schemas.api_schemas import PaginatedResponse, StrictSchema
 
 
 class UsageEventBase(StrictSchema):
@@ -46,3 +46,11 @@ class UsageSummaryOut(UsageSummaryBase):
     created_at: datetime
 
     model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+
+class UsageEventListResponse(PaginatedResponse[UsageEventOut]):
+    pass
+
+
+class UsageSummaryListResponse(PaginatedResponse[UsageSummaryOut]):
+    pass

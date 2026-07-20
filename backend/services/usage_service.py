@@ -26,10 +26,24 @@ def list_usage_events_service(
     *,
     user_id: int | None = None,
     organisation_id: int | None = None,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "recorded_at",
+    sort_dir: str = "desc",
 ):
-    return usage_crud.list_usage_events(
+    items = usage_crud.list_usage_events(
+        db,
+        user_id=user_id,
+        organisation_id=organisation_id,
+        offset=offset,
+        limit=limit,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
+    total = usage_crud.count_usage_events(
         db, user_id=user_id, organisation_id=organisation_id
     )
+    return items, total
 
 
 def create_usage_summary_service(db: Session, payload: UsageSummaryCreate):
@@ -44,7 +58,21 @@ def list_usage_summaries_service(
     *,
     user_id: int | None = None,
     organisation_id: int | None = None,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "period_start",
+    sort_dir: str = "desc",
 ):
-    return usage_crud.list_usage_summaries(
+    items = usage_crud.list_usage_summaries(
+        db,
+        user_id=user_id,
+        organisation_id=organisation_id,
+        offset=offset,
+        limit=limit,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+    )
+    total = usage_crud.count_usage_summaries(
         db, user_id=user_id, organisation_id=organisation_id
     )
+    return items, total

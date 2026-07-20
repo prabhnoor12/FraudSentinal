@@ -1,4 +1,5 @@
 from fastapi import status
+from cruds import user_crud
 
 
 def _register_and_login(client, email: str, password: str, organisation_name: str):
@@ -244,3 +245,168 @@ def test_v1_service_account_lists_use_paginated_contract(client):
     keys_body = keys_list.json()
     assert keys_body["pagination"]["total"] == 1
     assert keys_body["items"][0]["name"] == "primary"
+
+
+def test_v1_usage_and_user_tracking_lists_use_paginated_contract(client):
+    token, me = _register_and_login(
+        client,
+        email="usage-paging@example.com",
+        password="StrongPass123!",
+        organisation_name="Usage Paging Org",
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+
+    client.post(
+        "/api/v1/usage/events",
+        headers={**headers, "Idempotency-Key": "usage-event-001"},
+        json={
+            "user_id": me["id"],
+            "organisation_id": me["organisation_id"],
+            "event_type": "fraud_check",
+            "units": 5,
+            "unit_type": "request",
+            "description": "Event one",
+            "status": "recorded",
+        },
+    )
+    client.post(
+        "/api/v1/usage/events",
+        headers={**headers, "Idempotency-Key": "usage-event-002"},
+        json={
+            "user_id": me["id"],
+            "organisation_id": me["organisation_id"],
+            "event_type": "billing",
+            "units": 2,
+            "unit_type": "request",
+            "description": "Event two",
+            "status": "recorded",
+        },
+    )
+    client.post(
+        "/api/v1/usage/summaries",
+        headers={**headers, "Idempotency-Key": "usage-summary-001"},
+        json={
+            "user_id": me["id"],
+            "organisation_id": me["organisation_id"],
+            "period_start": "2026-07-01T00:00:00Z",
+            "period_end": "2026-07-31T23:59:59Z",
+            "total_units": 7,
+            "currency": "USD",
+        },
+    )
+
+    usage_events = client.get(
+        "/api/v1/usage/events?limit=1&offset=0&sort_by=units&sort_dir=desc",
+        headers=headers,
+    )
+    assert usage_events.status_code == status.HTTP_200_OK
+    usage_events_body = usage_events.json()
+    assert usage_events_body["pagination"]["total"] == 2
+    assert len(usage_events_body["items"]) == 1
+    assert usage_events_body["items"][0]["units"] == 5
+
+    usage_summaries = client.get(
+        "/api/v1/user-tracking/summaries?limit=10&offset=0",
+        headers=headers,
+    )
+    assert usage_summaries.status_code == status.HTTP_200_OK
+    usage_summaries_body = usage_summaries.json()
+    assert usage_summaries_body["pagination"]["total"] == 1
+    assert usage_summaries_body["items"][0]["total_units"] == 7
+
+
+def test_v1_billing_lists_use_paginated_contract(client):
+    token, me = _register_and_login(
+        client,
+        email="billing-paging@example.com",
+        password="StrongPass123!",
+        organisation_name="Billing Paging Org",
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+
+    plan_one = client.post(
+        "/api/v1/billing/plans",
+        headers={**headers, "Idempotency-Key": "billing-plan-001"},
+        json={
+            "organisation_id": me["organisation_id"],
+            "name": "Starter",
+            "price_per_unit": 1.5,
+            "currency": "USD",
+            "billing_interval": "monthly",
+            "is_active": True,
+        },
+    )
+    assert plan_one.status_code == status.HTTP_201_CREATED
+
+    plan_two = client.post(
+        "/api/v1/billing/plans",
+        headers={**headers, "Idempotency-Key": "billing-plan-002"},
+        json={
+            "organisation_id": me["organisation_id"],
+            "name": "Legacy",
+            "price_per_unit": 2.5,
+            "currency": "USD",
+            "billing_interval": "monthly",
+            "is_active": False,
+        },
+    )
+    assert plan_two.status_code == status.HTTP_201_CREATED
+
+    record = client.post(
+        "/api/v1/billing/records",
+        headers={**headers, "Idempotency-Key": "billing-record-001"},
+        json={
+            "user_id": me["id"],
+            "organisation_id": me["organisation_id"],
+            "amount": 25.0,
+            "currency": "USD",
+            "status": "pending",
+            "invoice_id": "inv_test_001",
+            "description": "Monthly fee",
+            "billing_period_start": "2026-07-01T00:00:00Z",
+            "billing_period_end": "2026-07-31T23:59:59Z",
+        },
+    )
+    assert record.status_code == status.HTTP_201_CREATED
+
+    plans_list = client.get(
+        "/api/v1/billing/plans?is_active=true&limit=10&offset=0&sort_by=name&sort_dir=asc",
+        headers=headers,
+    )
+    assert plans_list.status_code == status.HTTP_200_OK
+    plans_body = plans_list.json()
+    assert plans_body["pagination"]["total"] == 1
+    assert plans_body["items"][0]["name"] == "Starter"
+
+    records_list = client.get(
+        "/api/v1/billing/records?status=pending&limit=10&offset=0",
+        headers=headers,
+    )
+    assert records_list.status_code == status.HTTP_200_OK
+    records_body = records_list.json()
+    assert records_body["pagination"]["total"] == 1
+    assert records_body["items"][0]["invoice_id"] == "inv_test_001"
+
+
+def test_v1_audit_list_uses_paginated_contract(client, db):
+    token, me = _register_and_login(
+        client,
+        email="audit-paging@example.com",
+        password="StrongPass123!",
+        organisation_name="Audit Paging Org",
+    )
+    user = user_crud.get_user_by_id(db, me["id"])
+    user.role = "admin"
+    db.commit()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    audit_list = client.get(
+        "/api/v1/audit?limit=5&offset=0&sort_by=created_at&sort_dir=desc",
+        headers=headers,
+    )
+    assert audit_list.status_code == status.HTTP_200_OK
+    body = audit_list.json()
+    assert "items" in body
+    assert "pagination" in body
+    assert body["pagination"]["limit"] == 5
+    assert body["pagination"]["offset"] == 0

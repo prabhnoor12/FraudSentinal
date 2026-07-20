@@ -1,10 +1,19 @@
+from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Response
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from auth import get_current_org_id, oauth2_scheme
 from database import get_db
+from schemas.audit_schemas import AuditLogListResponse
 from services import auth_service, audit_service
+from utils.pagination_utils import (
+    build_paginated_payload,
+    normalize_limit,
+    normalize_offset,
+    normalize_sort_dir,
+)
 
 router = APIRouter(prefix="/audit", tags=["audit"])
 
@@ -23,20 +32,25 @@ def require_admin(
     return user
 
 
-@router.get("", dependencies=[Depends(require_admin)])
+@router.get("", response_model=AuditLogListResponse, dependencies=[Depends(require_admin)])
 def list_audit_logs(
+    request: Request,
     event_type: Optional[str] = None,
     resource_type: Optional[str] = None,
     user_id: Optional[int] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
     limit: int = Query(100, le=500),
     offset: int = 0,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
     org_id: int = Depends(get_current_org_id),
     db: Session = Depends(get_db),
 ):
     """List audit logs with multi-condition filtering and tenant isolation."""
-    return audit_service.AuditService.list_logs(
+    normalized_limit = normalize_limit(limit, default=100, maximum=500)
+    normalized_offset = normalize_offset(offset)
+    items, total = audit_service.AuditService.list_logs(
         db,
         organisation_id=org_id,
         event_type=event_type,
@@ -44,8 +58,17 @@ def list_audit_logs(
         user_id=user_id,
         start_date=start_date,
         end_date=end_date,
-        limit=limit,
-        offset=offset,
+        limit=normalized_limit,
+        offset=normalized_offset,
+        sort_by=sort_by,
+        sort_dir=normalize_sort_dir(sort_dir),
+    )
+    return build_paginated_payload(
+        request=request,
+        items=items,
+        total=total,
+        limit=normalized_limit,
+        offset=normalized_offset,
     )
 
 

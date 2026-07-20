@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import ConfigDict
 
-from schemas.api_schemas import StrictSchema
+from schemas.api_schemas import PaginatedResponse, StrictSchema
 
 
 class BillingPlanBase(StrictSchema):
@@ -50,3 +50,11 @@ class BillingRecordOut(BillingRecordBase):
     billed_at: Optional[datetime] = None
 
     model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+
+class BillingPlanListResponse(PaginatedResponse[BillingPlanOut]):
+    pass
+
+
+class BillingRecordListResponse(PaginatedResponse[BillingRecordOut]):
+    pass

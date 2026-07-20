@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 from cruds import audit_crud
@@ -109,7 +110,16 @@ class AuditService:
     @staticmethod
     def list_logs(db: Session, organisation_id: int, **kwargs):
         # Tenant isolation is enforced here
-        return audit_crud.list_audit_logs(db, organisation_id=organisation_id, **kwargs)
+        logs = audit_crud.list_audit_logs(db, organisation_id=organisation_id, **kwargs)
+        count_kwargs = {
+            key: value
+            for key, value in kwargs.items()
+            if key in {"user_id", "event_type", "resource_type", "start_date", "end_date"}
+        }
+        total = audit_crud.count_audit_logs(
+            db, organisation_id=organisation_id, **count_kwargs
+        )
+        return logs, total
 
     @staticmethod
     def get_stats(db: Session, organisation_id: int):
