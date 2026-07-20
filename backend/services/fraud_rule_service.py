@@ -30,6 +30,8 @@ NUMERIC_FIELDS = {
     FraudRuleField.amount_velocity_24hour,
     FraudRuleField.unique_ips_1hour,
     FraudRuleField.unique_ips_24hour,
+    FraudRuleField.known_devices_count,
+    FraudRuleField.device_fingerprint_confidence,
 }
 
 STRING_FIELDS = {
@@ -210,6 +212,17 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "operator": FraudRuleOperator.lt,
         "comparison_value": 3,
         "priority": 120,
+    },
+    {
+        "name": "New device detected",
+        "rule_code": "new_device_detected",
+        "description": "Adds risk when a transaction comes from a device not seen before for the customer.",
+        "reason_code": ReasonCode.new_device,
+        "weight": 25,
+        "field_name": FraudRuleField.new_device,
+        "operator": FraudRuleOperator.eq,
+        "comparison_value": True,
+        "priority": 125,
     },
     {
         "name": "Billing shipping mismatch",

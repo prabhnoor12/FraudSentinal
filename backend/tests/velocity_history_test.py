@@ -108,7 +108,7 @@ def test_score_transaction_uses_persisted_velocity_history(db, client):
         customer_id=customer_id,
         ip_address="10.0.0.1",
         device_id="device-1",
-        metadata={},
+        metadata={},    
     )
 
     result = scoring_service.score_transaction(db, payload)

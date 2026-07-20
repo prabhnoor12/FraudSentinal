@@ -44,6 +44,9 @@ class FraudRuleField(str, Enum):
     amount_velocity_24hour = "amount_velocity_24hour"
     unique_ips_1hour = "unique_ips_1hour"
     unique_ips_24hour = "unique_ips_24hour"
+    new_device = "new_device"
+    known_devices_count = "known_devices_count"
+    device_fingerprint_confidence = "device_fingerprint_confidence"
 
     # IP Geolocation enrichment fields
     ip_country_code = "ip_country_code"

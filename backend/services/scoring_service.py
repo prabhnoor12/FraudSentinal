@@ -8,7 +8,12 @@ from sqlalchemy.orm import Session
 from schemas.decision_schemas import FraudDecision, ReasonCode
 from schemas.fraud_rule_schemas import FraudRuleOperator
 from schemas.transaction_schemas import TransactionCreate
-from services import fraud_rule_service, transaction_service, velocity_service
+from services import (
+    device_fingerprint_service,
+    fraud_rule_service,
+    transaction_service,
+    velocity_service,
+)
 
 
 def _is_missing(value) -> bool:
@@ -135,6 +140,8 @@ def score_transaction(db: Session, payload: TransactionCreate) -> dict:
     )
     velocity_signals = velocity_service.get_velocity_signals(db, payload)
     transaction_data.update(velocity_signals)
+    device_signals = device_fingerprint_service.get_device_signals(db, payload)
+    transaction_data.update(device_signals)
 
     effective_rules = fraud_rule_service.list_effective_fraud_rules_service(
         db,

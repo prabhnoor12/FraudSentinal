@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from auth import get_current_org_id, oauth2_scheme
@@ -19,10 +19,20 @@ def require_auth(
 
 @router.post("", response_model=FraudCheckResponse)
 def check_fraud(
+    request: Request,
     payload: FraudCheckRequest,
     org_id: int = Depends(get_current_org_id),
     db: Session = Depends(get_db),
 ):
     # Enforce org_id from token
     payload.organisation_id = org_id
+    payload.metadata = {
+        **(payload.metadata or {}),
+        "user_agent": (payload.metadata or {}).get("user_agent")
+        or request.headers.get("user-agent"),
+        "accept_language": (payload.metadata or {}).get("accept_language")
+        or request.headers.get("accept-language"),
+        "accept_encoding": (payload.metadata or {}).get("accept_encoding")
+        or request.headers.get("accept-encoding"),
+    }
     return fraud_check_service.check_fraud_service(db, payload)

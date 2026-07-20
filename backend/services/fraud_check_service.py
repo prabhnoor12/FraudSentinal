@@ -8,6 +8,7 @@ from schemas.decision_schemas import DecisionCreate
 from schemas.fraud_check_schemas import FraudCheckRequest, FraudCheckResponse
 from schemas.risk_signal_schemas import RiskSignalCreate
 from services import (
+    device_fingerprint_service,
     decision_service,
     fraud_rule_service,
     review_case_service,
@@ -117,6 +118,11 @@ def check_fraud_service(db: Session, payload: FraudCheckRequest) -> FraudCheckRe
             organisation_id=transaction.organisation_id,
             user_id=transaction.user_id,
             decision_value=decision.decision,
+            commit=False,
+        )
+        device_fingerprint_service.remember_device_fingerprint(
+            db,
+            payload,
             commit=False,
         )
         db.commit()

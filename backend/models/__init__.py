@@ -5,6 +5,7 @@ import models.audit_models  # noqa: F401
 import models.billing_models  # noqa: F401
 import models.bin_lookup_models  # noqa: F401
 import models.decision_models  # noqa: F401
+import models.device_fingerprint_models  # noqa: F401
 import models.fraud_rule_models  # noqa: F401
 import models.ip_geolocation_models  # noqa: F401
 import models.limit_tracking_models  # noqa: F401
