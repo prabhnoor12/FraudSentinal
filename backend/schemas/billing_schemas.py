@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field
 
 from schemas.api_schemas import PaginatedResponse, StrictSchema
 
@@ -9,6 +9,7 @@ from schemas.api_schemas import PaginatedResponse, StrictSchema
 class BillingPlanBase(StrictSchema):
     organisation_id: int
     name: str
+    plan_code: str = "starter"
     price_per_unit: float = 0.0
     currency: str = "USD"
     billing_interval: str = "monthly"
@@ -58,3 +59,75 @@ class BillingPlanListResponse(PaginatedResponse[BillingPlanOut]):
 
 class BillingRecordListResponse(PaginatedResponse[BillingRecordOut]):
     pass
+
+
+class BillingGraphQLRequest(StrictSchema):
+    query: str
+    variables: dict[str, Any] = Field(default_factory=dict)
+    operation_name: Optional[str] = None
+
+
+class SubscriptionMutationInput(StrictSchema):
+    action: str
+    target_plan_code: Optional[str] = None
+    billing_record_id: Optional[int] = None
+    reason: Optional[str] = None
+    trial_ends_at: Optional[datetime] = None
+
+
+class SubscriptionMutationResult(StrictSchema):
+    organisation_id: int
+    action: str
+    previous_plan_code: str
+    current_plan_code: str
+    previous_subscription_status: str
+    current_subscription_status: str
+    billing_record_id: Optional[int] = None
+    changed_at: datetime
+
+
+class GraphQLErrorExtension(StrictSchema):
+    code: str
+    details: dict[str, Any] = Field(default_factory=dict)
+    request_id: str = ""
+
+
+class GraphQLErrorOut(StrictSchema):
+    message: str
+    extensions: GraphQLErrorExtension
+
+
+class BillingPlanSummaryOut(StrictSchema):
+    code: str
+    name: str
+    price_per_unit: float = 0.0
+    currency: str = "USD"
+    billing_interval: str = "monthly"
+    is_active: bool = True
+    subscription_status: str
+    trial_ends_at: Optional[datetime] = None
+
+
+class QuotaAllocationOut(StrictSchema):
+    quota_key: str
+    feature_enabled: bool = True
+    limit: Optional[float] = None
+    current_usage: float = 0.0
+    remaining: Optional[float] = None
+    period: Optional[str] = None
+
+
+class UsageMetricOut(StrictSchema):
+    event_type: str
+    total_units: float = 0.0
+    pending_amount: float = 0.0
+    billed_amount: float = 0.0
+
+
+class BillingEntitlementsOut(StrictSchema):
+    organisation_id: int
+    plan: BillingPlanSummaryOut
+    quotas: list[QuotaAllocationOut]
+    blocked_features: list[str]
+    usage_metrics: list[UsageMetricOut]
+    cached_at: datetime

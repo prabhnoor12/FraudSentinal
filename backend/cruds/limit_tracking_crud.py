@@ -1,19 +1,43 @@
+from datetime import datetime
+
 from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session
 
 from models.limit_tracking_models import LimitUsageRecord, UsageLimit
 
 
-def create_usage_limit(db: Session, **data) -> UsageLimit:
+def create_usage_limit(db: Session, *, commit: bool = True, **data) -> UsageLimit:
     usage_limit = UsageLimit(**data)
     db.add(usage_limit)
-    db.commit()
-    db.refresh(usage_limit)
+    if commit:
+        db.commit()
+        db.refresh(usage_limit)
+    else:
+        db.flush()
     return usage_limit
 
 
 def get_usage_limit_by_id(db: Session, usage_limit_id: int) -> UsageLimit | None:
     return db.query(UsageLimit).filter(UsageLimit.id == usage_limit_id).first()
+
+
+def get_usage_limit(
+    db: Session,
+    *,
+    user_id: int | None = None,
+    organisation_id: int | None = None,
+    limit_type: str,
+) -> UsageLimit | None:
+    query = db.query(UsageLimit).filter(UsageLimit.limit_type == limit_type)
+    if user_id is not None:
+        query = query.filter(UsageLimit.user_id == user_id)
+    else:
+        query = query.filter(UsageLimit.user_id.is_(None))
+    if organisation_id is not None:
+        query = query.filter(UsageLimit.organisation_id == organisation_id)
+    else:
+        query = query.filter(UsageLimit.organisation_id.is_(None))
+    return query.order_by(desc(UsageLimit.id)).first()
 
 
 def list_usage_limits(
@@ -75,12 +99,35 @@ def update_usage_limit(db: Session, usage_limit: UsageLimit, **updates) -> Usage
     return usage_limit
 
 
-def create_limit_usage_record(db: Session, **data) -> LimitUsageRecord:
+def create_limit_usage_record(
+    db: Session, *, commit: bool = True, **data
+) -> LimitUsageRecord:
     record = LimitUsageRecord(**data)
     db.add(record)
-    db.commit()
-    db.refresh(record)
+    if commit:
+        db.commit()
+        db.refresh(record)
+    else:
+        db.flush()
     return record
+
+
+def get_limit_usage_record_for_period(
+    db: Session,
+    *,
+    usage_limit_id: int,
+    period_start: datetime,
+    period_end: datetime,
+) -> LimitUsageRecord | None:
+    return (
+        db.query(LimitUsageRecord)
+        .filter(
+            LimitUsageRecord.usage_limit_id == usage_limit_id,
+            LimitUsageRecord.period_start == period_start,
+            LimitUsageRecord.period_end == period_end,
+        )
+        .first()
+    )
 
 
 def list_limit_usage_records(
@@ -130,3 +177,21 @@ def count_limit_usage_records(
     if usage_limit_id is not None:
         query = query.filter(LimitUsageRecord.usage_limit_id == usage_limit_id)
     return query.scalar() or 0
+
+
+def update_limit_usage_record(
+    db: Session,
+    record: LimitUsageRecord,
+    *,
+    commit: bool = True,
+    **updates,
+) -> LimitUsageRecord:
+    for field, value in updates.items():
+        if value is not None:
+            setattr(record, field, value)
+    if commit:
+        db.commit()
+        db.refresh(record)
+    else:
+        db.flush()
+    return record

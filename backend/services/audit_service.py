@@ -18,9 +18,11 @@ class AuditService:
         details: Optional[Dict[str, Any]] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
+        commit: bool = True,
     ) -> AuditLog:
         return audit_crud.create_audit_log(
             db,
+            commit=commit,
             user_id=user_id,
             organisation_id=organisation_id,
             event_type="security_event",
@@ -44,9 +46,11 @@ class AuditService:
         new_value: Optional[Dict[str, Any]] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
+        commit: bool = True,
     ) -> AuditLog:
         return audit_crud.create_audit_log(
             db,
+            commit=commit,
             user_id=user_id,
             organisation_id=organisation_id,
             event_type="rule_change",
@@ -70,9 +74,11 @@ class AuditService:
         notes: Optional[str] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
+        commit: bool = True,
     ) -> AuditLog:
         return audit_crud.create_audit_log(
             db,
+            commit=commit,
             user_id=user_id,
             organisation_id=organisation_id,
             event_type="case_action",
@@ -94,15 +100,48 @@ class AuditService:
         resource_id: str,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
+        commit: bool = True,
     ) -> AuditLog:
         return audit_crud.create_audit_log(
             db,
+            commit=commit,
             user_id=user_id,
             organisation_id=organisation_id,
             event_type="resource_access",
             action="view",
             resource_type=resource_type,
             resource_id=resource_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+
+    @staticmethod
+    def log_subscription_change(
+        db: Session,
+        *,
+        action: str,
+        organisation_id: int,
+        user_id: Optional[int] = None,
+        resource_id: Optional[str] = None,
+        old_value: Optional[Dict[str, Any]] = None,
+        new_value: Optional[Dict[str, Any]] = None,
+        details: Optional[Dict[str, Any]] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        commit: bool = True,
+    ) -> AuditLog:
+        return audit_crud.create_audit_log(
+            db,
+            commit=commit,
+            user_id=user_id,
+            organisation_id=organisation_id,
+            event_type="billing_subscription",
+            action=action,
+            resource_type="organisation_subscription",
+            resource_id=resource_id or str(organisation_id),
+            old_value=old_value,
+            new_value=new_value,
+            details=details,
             ip_address=ip_address,
             user_agent=user_agent,
         )

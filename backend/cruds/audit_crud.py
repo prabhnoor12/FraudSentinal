@@ -7,12 +7,15 @@ from sqlalchemy.orm import Session
 from models.audit_models import AuditLog
 
 
-def create_audit_log(db: Session, **kwargs) -> AuditLog:
+def create_audit_log(db: Session, *, commit: bool = True, **kwargs) -> AuditLog:
     """Create a new audit log entry. Logs are intended to be immutable."""
     db_obj = AuditLog(**kwargs)
     db.add(db_obj)
-    db.commit()
-    db.refresh(db_obj)
+    if commit:
+        db.commit()
+        db.refresh(db_obj)
+    else:
+        db.flush()
     return db_obj
 
 

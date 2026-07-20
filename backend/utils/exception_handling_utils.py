@@ -92,6 +92,57 @@ class ForbiddenError(AppException):
         )
 
 
+class SubscriptionInactiveError(AppException):
+    """Raised when a tenant subscription is not in an active state."""
+
+    def __init__(
+        self,
+        message: str = "Subscription is not active",
+        *,
+        details: Optional[dict[str, Any]] = None,
+    ) -> None:
+        super().__init__(
+            message,
+            status_code=status.HTTP_403_FORBIDDEN,
+            error_code="subscription_inactive",
+            details=details,
+        )
+
+
+class FeatureNotAvailableError(AppException):
+    """Raised when the active plan does not include a requested feature."""
+
+    def __init__(
+        self,
+        message: str = "Feature is not available on the current plan",
+        *,
+        details: Optional[dict[str, Any]] = None,
+    ) -> None:
+        super().__init__(
+            message,
+            status_code=status.HTTP_403_FORBIDDEN,
+            error_code="feature_not_available",
+            details=details,
+        )
+
+
+class QuotaExceededError(AppException):
+    """Raised when the tenant exceeds an enforced quota."""
+
+    def __init__(
+        self,
+        message: str = "Quota exceeded",
+        *,
+        details: Optional[dict[str, Any]] = None,
+    ) -> None:
+        super().__init__(
+            message,
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            error_code="quota_exceeded",
+            details=details,
+        )
+
+
 class ConflictError(AppException):
     """Raised when a resource conflicts with an existing one."""
 
@@ -248,6 +299,9 @@ __all__ = [
     "NotFoundError",
     "UnauthorizedError",
     "ForbiddenError",
+    "SubscriptionInactiveError",
+    "FeatureNotAvailableError",
+    "QuotaExceededError",
     "ConflictError",
     "ExternalServiceError",
     "handle_app_exception",

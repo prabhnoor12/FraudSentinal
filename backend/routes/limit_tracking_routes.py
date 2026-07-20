@@ -1,7 +1,13 @@
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
-from auth_dependencies import get_current_org_id, get_current_principal, require_scopes
+from auth_dependencies import (
+    get_current_org_id,
+    get_current_principal,
+    require_active_subscription,
+    require_feature,
+    require_scopes,
+)
 from database import get_db
 from schemas.limit_tracking_schemas import (
     LimitUsageRecordCreate,
@@ -32,7 +38,11 @@ def require_auth(
 @router.get(
     "/limits",
     response_model=UsageLimitListResponse,
-    dependencies=[Depends(require_scopes("limits:read"))],
+    dependencies=[
+        Depends(require_scopes("limits:read")),
+        Depends(require_active_subscription()),
+        Depends(require_feature("limit_tracking")),
+    ],
 )
 def list_usage_limits(
     request: Request,
@@ -70,16 +80,29 @@ def list_usage_limits(
     "/limits",
     response_model=UsageLimitOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_scopes("limits:write"))],
+    dependencies=[
+        Depends(require_scopes("limits:write")),
+        Depends(require_active_subscription()),
+        Depends(require_feature("limit_tracking")),
+    ],
 )
-def create_usage_limit(payload: UsageLimitCreate, db: Session = Depends(get_db)):
+def create_usage_limit(
+    payload: UsageLimitCreate,
+    org_id: int = Depends(get_current_org_id),
+    db: Session = Depends(get_db),
+):
+    payload.organisation_id = org_id
     return limit_tracking_service.create_usage_limit_service(db, payload)
 
 
 @router.get(
     "/records",
     response_model=LimitUsageRecordListResponse,
-    dependencies=[Depends(require_scopes("limits:read"))],
+    dependencies=[
+        Depends(require_scopes("limits:read")),
+        Depends(require_active_subscription()),
+        Depends(require_feature("limit_tracking")),
+    ],
 )
 def list_limit_usage_records(
     request: Request,
@@ -115,9 +138,19 @@ def list_limit_usage_records(
     "/records",
     response_model=LimitUsageRecordOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_scopes("limits:write"))],
+    dependencies=[
+        Depends(require_scopes("limits:write")),
+        Depends(require_active_subscription()),
+        Depends(require_feature("limit_tracking")),
+    ],
 )
 def create_limit_usage_record(
-    payload: LimitUsageRecordCreate, db: Session = Depends(get_db)
+    payload: LimitUsageRecordCreate,
+    org_id: int = Depends(get_current_org_id),
+    db: Session = Depends(get_db),
 ):
-    return limit_tracking_service.create_limit_usage_record_service(db, payload)
+    return limit_tracking_service.create_limit_usage_record_service(
+        db,
+        payload,
+        organisation_id=org_id,
+    )

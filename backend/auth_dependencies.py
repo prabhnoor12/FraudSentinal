@@ -8,8 +8,12 @@ from sqlalchemy.orm import Session
 
 from auth import api_key_header, oauth2_scheme
 from database import get_db
-from services import auth_service
-from utils.exception_handling_utils import ForbiddenError, UnauthorizedError
+from services import auth_service, entitlement_service
+from utils.exception_handling_utils import (
+    FeatureNotAvailableError,
+    ForbiddenError,
+    UnauthorizedError,
+)
 
 
 @dataclass
@@ -75,5 +79,60 @@ def require_scopes(*required_scopes: str) -> Callable:
                 details={"required_scopes": required_scopes, "missing_scopes": missing},
             )
         return principal
+
+    return dependency
+
+
+def get_current_entitlements(
+    org_id: int = Depends(get_current_org_id),
+    db: Session = Depends(get_db),
+) -> entitlement_service.EntitlementSnapshot:
+    return entitlement_service.resolve_entitlements(db, org_id)
+
+
+def require_active_subscription() -> Callable:
+    def dependency(
+        entitlements: entitlement_service.EntitlementSnapshot = Depends(
+            get_current_entitlements
+        ),
+    ) -> entitlement_service.EntitlementSnapshot:
+        return entitlement_service.assert_subscription_active(entitlements)
+
+    return dependency
+
+
+def require_feature(feature: str) -> Callable:
+    def dependency(
+        entitlements: entitlement_service.EntitlementSnapshot = Depends(
+            get_current_entitlements
+        ),
+    ) -> entitlement_service.EntitlementSnapshot:
+        entitlement_service.assert_subscription_active(entitlements)
+        if feature not in entitlements.features:
+            raise FeatureNotAvailableError(
+                details={
+                    "feature": feature,
+                    "organisation_id": entitlements.organisation_id,
+                    "plan_code": entitlements.plan_code,
+                }
+            )
+        return entitlements
+
+    return dependency
+
+
+def require_quota(quota_key: str, *, units: float = 1.0) -> Callable:
+    def dependency(
+        org_id: int = Depends(get_current_org_id),
+        principal: AuthenticatedPrincipal = Depends(get_current_principal),
+        db: Session = Depends(get_db),
+    ) -> entitlement_service.ResolvedQuota:
+        return entitlement_service.assert_quota_available(
+            db,
+            organisation_id=org_id,
+            quota_key=quota_key,
+            units=units,
+            user_id=getattr(principal.user, "id", None),
+        )
 
     return dependency

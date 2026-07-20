@@ -61,13 +61,16 @@ def count_organisations(db: Session, *, organisation_id: int | None = None) -> i
 
 
 def update_organisation(
-    db: Session, organisation: Organisation, **updates
+    db: Session, organisation: Organisation, *, commit: bool = True, **updates
 ) -> Organisation:
     for field, value in updates.items():
         if value is not None:
             setattr(organisation, field, value)
-    db.commit()
-    db.refresh(organisation)
+    if commit:
+        db.commit()
+        db.refresh(organisation)
+    else:
+        db.flush()
     return organisation
 
 

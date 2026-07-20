@@ -27,6 +27,7 @@ class BillingPlan(Base):
         index=True,
     )
     name = Column(String(100), nullable=False)
+    plan_code = Column(String(50), default="starter", nullable=False)
     price_per_unit = Column(Float, default=0.0, nullable=False)
     currency = Column(String(10), default="USD", nullable=False)
     billing_interval = Column(String(30), default="monthly", nullable=False)

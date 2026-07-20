@@ -7,15 +7,23 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
-from auth import get_current_org_id
+from auth_dependencies import (
+    get_current_org_id,
+    get_current_principal,
+    require_active_subscription,
+    require_feature,
+    require_quota,
+)
 from database import get_db
 from schemas.enrichment_schemas import BINLookupListResponse, IPGeolocationListResponse
+from services import entitlement_service
 from utils.pagination_utils import (
     build_paginated_payload,
     normalize_limit,
     normalize_offset,
     normalize_sort_dir,
 )
+from utils.exception_handling_utils import ForbiddenError
 from utils.security_utils import (
     normalize_card_number,
     normalize_country_code,
@@ -24,6 +32,15 @@ from utils.security_utils import (
 )
 
 router = APIRouter(prefix="/enrichment", tags=["enrichment"])
+
+
+def _get_billable_user_id(principal) -> int:
+    user_id = getattr(principal.user, "id", None) or getattr(
+        principal.service_account, "created_by_user_id", None
+    )
+    if user_id is None:
+        raise ForbiddenError("A billable user context is required for enrichment usage")
+    return int(user_id)
 
 
 @router.get("/health")
@@ -35,13 +52,22 @@ def enrichment_health_check() -> dict[str, str]:
 # IP Geolocation Routes
 
 
-@router.get("/ip-geolocation/lookup")
+@router.get(
+    "/ip-geolocation/lookup",
+    dependencies=[
+        Depends(require_active_subscription()),
+        Depends(require_feature("enrichment")),
+        Depends(require_quota("enrichment_lookups")),
+    ],
+)
 def lookup_ip_geolocation(
     ip_address: str = Query(..., description="IP address to lookup"),
     db: Session = Depends(get_db),
     org_id: int = Depends(get_current_org_id),
+    principal=Depends(get_current_principal),
 ) -> dict[str, Any]:
-    """Lookup IP geolocation data for a given IP address."""
+
+
     from cruds.ip_geolocation_crud import get_geolocation_by_ip
 
     normalized_ip = normalize_ip_address(ip_address)
@@ -51,6 +77,14 @@ def lookup_ip_geolocation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No geolocation data found for IP: {normalized_ip}",
         )
+
+    entitlement_service.record_consumption(
+        db,
+        organisation_id=org_id,
+        user_id=_get_billable_user_id(principal),
+        meter_key="enrichment_lookups",
+        description=f"IP enrichment lookup for {normalized_ip}",
+    )
 
     return {
         "ip_address": normalized_ip,
@@ -69,6 +103,7 @@ def lookup_ip_geolocation(
     response_model=IPGeolocationListResponse,
     summary="List IP geolocation records",
     description="Returns local IP geolocation catalogue entries using the standard v1 paginated list envelope.",
+    dependencies=[Depends(require_active_subscription())],
 )
 def list_ip_geolocations(
     request: Request,
@@ -106,7 +141,14 @@ def list_ip_geolocations(
 # BIN Lookup Routes
 
 
-@router.get("/bin-lookup/lookup")
+@router.get(
+    "/bin-lookup/lookup",
+    dependencies=[
+        Depends(require_active_subscription()),
+        Depends(require_feature("enrichment")),
+        Depends(require_quota("enrichment_lookups")),
+    ],
+)
 def lookup_bin(
     bin_number: str | None = Query(
         None, description="BIN number (first 6 digits of card)"
@@ -116,6 +158,7 @@ def lookup_bin(
     ),
     db: Session = Depends(get_db),
     org_id: int = Depends(get_current_org_id),
+    principal=Depends(get_current_principal),
 ) -> dict[str, Any]:
     """Lookup BIN data for a card."""
     from cruds.bin_lookup_crud import get_bin_by_card_number, get_bin_by_number
@@ -159,6 +202,14 @@ def lookup_bin(
             ),
         )
 
+    entitlement_service.record_consumption(
+        db,
+        organisation_id=org_id,
+        user_id=_get_billable_user_id(principal),
+        meter_key="enrichment_lookups",
+        description=f"BIN enrichment lookup for {bin_data.bin_number}",
+    )
+
     return {
         "bin_number": bin_data.bin_number,
         "card_brand": bin_data.card_brand,
@@ -176,6 +227,7 @@ def lookup_bin(
     response_model=BINLookupListResponse,
     summary="List BIN lookup records",
     description="Returns local BIN catalogue entries using the standard v1 paginated list envelope.",
+    dependencies=[Depends(require_active_subscription())],
 )
 def list_bin_lookups(
     request: Request,
@@ -233,7 +285,13 @@ def list_bin_lookups(
     )
 
 
-@router.post("/seed")
+@router.post(
+    "/seed",
+    dependencies=[
+        Depends(require_active_subscription()),
+        Depends(require_feature("enrichment")),
+    ],
+)
 def seed_enrichment_data(
     confirm: bool = Query(..., description="Must be True to confirm seeding"),
     db: Session = Depends(get_db),
@@ -263,7 +321,14 @@ def seed_enrichment_data(
         ) from e
 
 
-@router.get("/signals/test")
+@router.get(
+    "/signals/test",
+    dependencies=[
+        Depends(require_active_subscription()),
+        Depends(require_feature("enrichment")),
+        Depends(require_quota("enrichment_lookups")),
+    ],
+)
 def test_enrichment_signals(
     ip_address: str | None = Query(None, description="IP address to test"),
     card_number: str | None = Query(
@@ -274,6 +339,7 @@ def test_enrichment_signals(
     ),
     db: Session = Depends(get_db),
     org_id: int = Depends(get_current_org_id),
+    principal=Depends(get_current_principal),
 ) -> dict[str, Any]:
     """Test endpoint to verify enrichment signals are working."""
     from services.enrichment_service import (
@@ -309,6 +375,14 @@ def test_enrichment_signals(
         ip_address=normalized_ip,
         card_number=normalized_card_number,
         billing_country=normalized_billing_country,
+    )
+
+    entitlement_service.record_consumption(
+        db,
+        organisation_id=org_id,
+        user_id=_get_billable_user_id(principal),
+        meter_key="enrichment_lookups",
+        description="Combined enrichment signal test",
     )
 
     return {

@@ -14,6 +14,9 @@ class Organisation(Base):
     name = Column(String(255), nullable=False)
     slug = Column(String(100), unique=True, index=True, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
+    plan_code = Column(String(50), default="starter", nullable=False)
+    subscription_status = Column(String(30), default="active", nullable=False)
+    trial_ends_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC), nullable=False)
     updated_at = Column(
         DateTime,

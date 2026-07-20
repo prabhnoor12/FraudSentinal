@@ -16,6 +16,17 @@ def get_billing_plan_by_id(db: Session, billing_plan_id: int) -> BillingPlan | N
     return db.query(BillingPlan).filter(BillingPlan.id == billing_plan_id).first()
 
 
+def get_active_billing_plan(
+    db: Session, *, organisation_id: int, plan_code: str | None = None
+) -> BillingPlan | None:
+    query = db.query(BillingPlan).filter(
+        BillingPlan.organisation_id == organisation_id, BillingPlan.is_active.is_(True)
+    )
+    if plan_code is not None:
+        query = query.filter(BillingPlan.plan_code == plan_code)
+    return query.order_by(desc(BillingPlan.updated_at), desc(BillingPlan.id)).first()
+
+
 def list_billing_plans(
     db: Session,
     *,
@@ -71,11 +82,32 @@ def update_billing_plan(
     return billing_plan
 
 
-def create_billing_record(db: Session, **data) -> BillingRecord:
+def create_billing_record(db: Session, *, commit: bool = True, **data) -> BillingRecord:
     billing_record = BillingRecord(**data)
     db.add(billing_record)
-    db.commit()
-    db.refresh(billing_record)
+    if commit:
+        db.commit()
+        db.refresh(billing_record)
+    else:
+        db.flush()
+    return billing_record
+
+
+def get_billing_record_by_id(db: Session, billing_record_id: int) -> BillingRecord | None:
+    return db.query(BillingRecord).filter(BillingRecord.id == billing_record_id).first()
+
+
+def update_billing_record(
+    db: Session, billing_record: BillingRecord, *, commit: bool = True, **updates
+) -> BillingRecord:
+    for field, value in updates.items():
+        if value is not None:
+            setattr(billing_record, field, value)
+    if commit:
+        db.commit()
+        db.refresh(billing_record)
+    else:
+        db.flush()
     return billing_record
 
 

@@ -1,363 +1,397 @@
-# FraudSentinal API Documentation
+# FraudSentinal API v1 Documentation
 
 ## Overview
 
-FraudSentinal is a real-time fraud detection API that scores transactions using configurable rules, signal enrichment (IP geolocation + BIN lookup), and risk-based decisioning.
+FraudSentinal exposes a versioned public API for fraud scoring, transaction review, usage metering, billing, tenant administration, and enrichment data access.
 
-**Base URL:** `http://localhost:8000`
+- Base URL: `http://localhost:8000`
+- Public version prefix: `/api/v1`
+- Swagger UI: `/docs`
+- OpenAPI JSON: `/openapi.json`
 
-**Authentication:** Bearer token (JWT) required for all endpoints except `/health` and `/auth/*`
+## Authentication
 
----
+### Bearer JWT
 
-## Core Fraud Detection
+Use JWT authentication for interactive user workflows.
 
-### POST /check-fraud
-
-The primary endpoint for scoring transactions and making fraud decisions.
-
-**Request Headers:**
-```
+```http
 Authorization: Bearer <jwt_token>
+```
+
+### API Keys
+
+Use service-account API keys for machine-to-machine integrations.
+
+```http
+X-API-Key: fs_live_xxxxxxxxxxxxx
+```
+
+### Auth Notes
+
+- JWTs and API keys both enforce organisation isolation.
+- API keys must include the scopes required by each route.
+- Interactive user routes, such as service-account management, require JWT authentication.
+
+## Core Headers
+
+### Required On JSON Requests
+
+```http
 Content-Type: application/json
 ```
 
-**Request Body:**
+### Recommended On All Requests
+
+```http
+X-Request-ID: your-correlation-id
+```
+
+### Required On Mutating Public API Calls
+
+```http
+Idempotency-Key: your-stable-operation-id
+```
+
+## Standard Response Shapes
+
+### Error Envelope
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "schema_validation_error",
+    "message": "Validation failed",
+    "details": {
+      "errors": []
+    },
+    "request_id": "1fca8a08-95cb-4d57-9c11-5a9f3b8f64d9"
+  }
+}
+```
+
+### Paginated List Envelope
+
+```json
+{
+  "items": [],
+  "pagination": {
+    "total": 125,
+    "limit": 25,
+    "offset": 50,
+    "next": "/api/v1/transactions?limit=25&offset=75",
+    "previous": "/api/v1/transactions?limit=25&offset=25"
+  }
+}
+```
+
+### Shared List Query Parameters
+
+- `limit`
+- `offset`
+- `sort_by`
+- `sort_dir`
+
+Additional filters are route-specific.
+
+## Authentication Endpoints
+
+### POST /api/v1/auth/register
+
+Register a user and create an organisation when `organisation_name` is provided.
+
+### POST /api/v1/auth/login
+
+Exchange user credentials for JWT access and refresh tokens.
+
+### GET /api/v1/auth/me
+
+Return the authenticated user profile.
+
+### POST /api/v1/auth/service-accounts
+
+Create a service account for machine access.
+
+### GET /api/v1/auth/service-accounts
+
+List service accounts using the shared paginated envelope.
+
+Supported query params:
+
+- `limit`
+- `offset`
+- `sort_by`
+- `sort_dir`
+
+### POST /api/v1/auth/service-accounts/{service_account_id}/keys
+
+Issue a new API key for a service account.
+
+### GET /api/v1/auth/service-accounts/{service_account_id}/keys
+
+List API keys for a service account using the shared paginated envelope.
+
+## Fraud Scoring
+
+### POST /api/v1/check-fraud
+
+The primary fraud scoring endpoint.
+
+Required headers:
+
+```http
+Content-Type: application/json
+Idempotency-Key: fraud-check-001
+X-API-Key: fs_live_xxxxxxxxxxxxx
+```
+
+Example request body:
+
 ```json
 {
   "user_id": 1,
   "organisation_id": 1,
   "external_transaction_id": "txn_12345",
-  "amount": 150.00,
+  "amount": 150.0,
   "currency": "USD",
-  "payment_method": "credit_card",
+  "payment_method": "card",
   "channel": "api",
   "customer_id": "cust_12345",
-  "customer_email": "customer@example.com",
   "billing_country": "US",
   "shipping_country": "US",
-  "ip_address": "192.168.1.1",
+  "ip_address": "8.8.8.8",
   "device_id": "device_12345",
-  "account_age_days": 365,
-  "transactions_last_24h": 2,
-  "failed_attempts_last_24h": 0,
   "metadata": {
     "card_last_four": "4242"
   }
 }
 ```
 
-**Response (200 OK):**
-```json
-{
-  "risk_score": 45.5,
-  "decision": "review",
-  "reason_codes": ["high_amount", "velocity_spike"],
-  "matched_rules": [
-    {
-      "id": 1,
-      "name": "High amount level 1",
-      "rule_code": "high_amount_500",
-      "weight": 10,
-      "reason_code": "high_amount"
-    }
-  ]
-}
-```
+## Operational Collections
 
-**Decision Values:**
-- `approve` - Transaction is safe to proceed
-- `review` - Transaction requires manual review
-- `decline` - Transaction should be blocked
+### GET /api/v1/transactions
 
-**Reason Codes:**
-- `high_amount` - Transaction amount is elevated
-- `velocity_spike` - Unusual transaction frequency
-- `repeated_failed_attempts` - Multiple failed attempts
-- `new_account` - Account is recently created
-- `cross_border_mismatch` - Billing/shipping country mismatch
-- `risky_payment_method` - High-risk payment method
-- `missing_device` - No device identifier present
-- `manual_entry` - Manual/call center channel
-- `low_signal_profile` - No risk signals detected (default)
+List transactions for the authenticated organisation.
 
----
+Supported query params:
 
-## Signal Enrichment
+- `user_id`
+- `limit`
+- `offset`
+- `sort_by`
+- `sort_dir`
 
-FraudSentinal enriches transactions with IP geolocation and BIN lookup data for enhanced fraud detection. This happens automatically during the `/check-fraud` call.
+### GET /api/v1/review-cases
 
-### IP Geolocation
+List review cases with filters for investigation workflows.
 
-Maps IP addresses to geographic locations to detect mismatches.
+Supported query params:
 
-**Signals Generated:**
-- `ip_country_code` - Country from IP geolocation
-- `ip_region` - Region/state from IP
-- `ip_city` - City from IP
-- `ip_billing_country_mismatch` - True if IP country != billing country
+- `transaction_id`
+- `decision_id`
+- `status`
+- `limit`
+- `offset`
+- `sort_by`
+- `sort_dir`
 
-### BIN Lookup
+### GET /api/v1/decisions
 
-Analyzes the first 6 digits of card numbers for risk signals.
+List fraud decisions for the tenant.
 
-**Signals Generated:**
-- `card_brand` - Visa, Mastercard, Amex, etc.
-- `card_type` - Credit, debit, prepaid
-- `issuing_country_code` - Country where card was issued
-- `is_prepaid` - True if prepaid card
-- `bin_risk_score` - Risk score (0-100) for this BIN
+### GET /api/v1/risk-signals
 
----
+List risk signals for a decision or transaction.
 
-## Enrichment API Endpoints
+## Usage And Billing
 
-### GET /enrichment/health
+### GET /api/v1/usage/events
 
-Health check for enrichment services.
+List usage events with the shared paginated envelope.
 
-**Response:**
-```json
-{
-  "status": "healthy",
-  "service": "enrichment"
-}
-```
+Supported query params:
 
----
+- `user_id`
+- `limit`
+- `offset`
+- `sort_by`
+- `sort_dir`
 
-### GET /enrichment/ip-geolocation/lookup
+### GET /api/v1/usage/summaries
 
-Lookup IP geolocation data for a given IP address.
+List usage summaries with the shared paginated envelope.
 
-**Query Parameters:**
-- `ip_address` (required) - IP address to lookup
+### GET /api/v1/billing/plans
 
-**Response:**
-```json
-{
-  "ip_address": "8.8.8.8",
-  "country_code": "US",
-  "region": "California",
-  "city": "Mountain View",
-  "latitude": 37.386,
-  "longitude": -122.0838,
-  "isp": "Google LLC",
-  "data_source": "local"
-}
-```
+List billing plans with the shared paginated envelope.
 
----
+Supported query params:
 
-### GET /enrichment/bin-lookup/lookup
+- `is_active`
+- `limit`
+- `offset`
+- `sort_by`
+- `sort_dir`
 
-Lookup BIN data for a card.
+### GET /api/v1/billing/records
 
-**Query Parameters:**
-- `bin_number` (optional) - First 6 digits of card
-- `card_number` (optional) - Full card number (BIN will be extracted)
+List billing records with the shared paginated envelope.
 
-**Response:**
-```json
-{
-  "bin_number": "424242",
-  "card_brand": "Visa",
-  "card_type": "Credit",
-  "issuing_bank": "Chase Bank",
-  "issuing_country_code": "US",
-  "is_prepaid": false,
-  "risk_score": 10,
-  "data_source": "local"
-}
-```
+Supported query params:
 
----
+- `user_id`
+- `status`
+- `limit`
+- `offset`
+- `sort_by`
+- `sort_dir`
 
-### GET /enrichment/signals/test
+## Limit Tracking And Sessions
 
-Test endpoint to verify enrichment signals are working.
+### GET /api/v1/limit-tracking/limits
 
-**Query Parameters:**
-- `ip_address` (optional) - IP to test
-- `card_number` (optional) - Card to test
-- `billing_country` (optional) - Billing country for mismatch detection
+List usage limits for the authenticated organisation.
 
-**Response:**
-```json
-{
-  "ip_address": "8.8.8.8",
-  "card_number": "424242******",
-  "billing_country": "US",
-  "signals": {
-    "ip_geolocation_available": true,
-    "ip_country": "US",
-    "ip_billing_country_mismatch": false,
-    "bin_lookup_available": true,
-    "card_brand": "Visa",
-    "is_prepaid": false
-  },
-  "enrichment_data_for_rules": {
-    "ip_country_code": "US",
-    "card_brand": "Visa",
-    "is_prepaid": false
-  },
-  "data_source": "local"
-}
-```
+### GET /api/v1/limit-tracking/records
 
----
+List usage records associated with limits in the authenticated organisation.
 
-### POST /enrichment/seed
+### GET /api/v1/sessions
 
-Seed the database with sample IP geolocation and BIN lookup data.
+List user sessions visible within the authenticated organisation.
 
-**Query Parameters:**
-- `confirm` (required) - Must be `true` to confirm seeding
+Supported query params:
 
-**Response:**
-```json
-{
-  "success": true,
-  "ip_geolocations": 12,
-  "bin_lookups": 15,
-  "message": "Enrichment data seeded successfully"
-}
-```
+- `user_id`
+- `status_filter`
+- `limit`
+- `offset`
+- `sort_by`
+- `sort_dir`
 
----
+## Tenant Administration
 
-## Authentication
+### GET /api/v1/users
 
-All endpoints except `/health` and `/auth/*` require a JWT Bearer token.
+List users in the authenticated organisation using the shared paginated envelope.
 
-**Header:**
-```
-Authorization: Bearer <jwt_token>
-```
+### GET /api/v1/organisations
 
-**Token Payload:**
-```json
-{
-  "sub": "user@example.com",
-  "user_id": 1,
-  "org_id": 1,
-  "exp": 1234567890
-}
-```
+List visible organisations for the authenticated caller. In the current tenant-scoped mode, non-admin users receive their own organisation in a paginated envelope.
 
-The `org_id` claim is used for tenant isolation - users can only access their organization's data.
+## Audit
 
----
+### GET /api/v1/audit
 
-## Error Responses
+List audit logs for the authenticated organisation. This route requires an admin user.
 
-**400 Bad Request:**
-```json
-{
-  "detail": "Invalid request parameters"
-}
-```
+Supported query params:
 
-**401 Unauthorized:**
-```json
-{
-  "detail": "Not authenticated"
-}
-```
+- `event_type`
+- `resource_type`
+- `user_id`
+- `start_date`
+- `end_date`
+- `limit`
+- `offset`
+- `sort_by`
+- `sort_dir`
 
-**403 Forbidden:**
-```json
-{
-  "detail": "Access denied"
-}
-```
+## Enrichment
 
-**404 Not Found:**
-```json
-{
-  "detail": "Resource not found"
-}
-```
+### GET /api/v1/enrichment/health
 
-**422 Validation Error:**
-```json
-{
-  "detail": [
-    {
-      "loc": ["body", "amount"],
-      "msg": "Amount must be greater than 0",
-      "type": "value_error"
-    }
-  ]
-}
-```
+Health check for the enrichment subsystem.
 
----
+### GET /api/v1/enrichment/ip-geolocation/lookup
 
-## Rate Limits
+Lookup a single IP address.
 
-- **General API:** 120 requests per 60 seconds
-- **IP-based:** 300 requests per 60 seconds
-- **Health check:** Unlimited
+### GET /api/v1/enrichment/ip-geolocation/list
 
-Rate limit headers are included in responses:
-```
+List local IP geolocation records using the shared paginated envelope.
+
+Supported query params:
+
+- `country_code`
+- `limit`
+- `offset`
+- `sort_by`
+- `sort_dir`
+
+### GET /api/v1/enrichment/bin-lookup/lookup
+
+Lookup a BIN by `bin_number` or `card_number`.
+
+### GET /api/v1/enrichment/bin-lookup/list
+
+List local BIN records using the shared paginated envelope.
+
+Supported query params:
+
+- `card_brand`
+- `issuing_country`
+- `high_risk_only`
+- `limit`
+- `offset`
+- `sort_by`
+- `sort_dir`
+
+## Idempotency
+
+`Idempotency-Key` is required for write operations under:
+
+- `/api/v1/check-fraud`
+- `/api/v1/transactions`
+- `/api/v1/usage`
+- `/api/v1/user-tracking`
+- `/api/v1/limit-tracking`
+- `/api/v1/billing`
+
+Rules:
+
+- Reuse the same key when retrying the same logical operation.
+- Do not reuse the same key for a different payload.
+- Duplicate submissions with the same key and payload replay the stored response.
+
+## Rate Limiting
+
+Throttle responses may include:
+
+```http
+Retry-After: 60
 X-RateLimit-Limit: 120
-X-RateLimit-Remaining: 119
+X-RateLimit-Remaining: 0
 X-RateLimit-Reset: 1234567890
 ```
 
----
+## Developer Resources
 
-## Testing the API
+- Contract reference: `backend/API_V1_CONTRACT.md`
+- Runnable examples: `backend/examples/API_V1_EXAMPLES.md`
+- Postman collection: `postman/FraudSentinal API v1.postman_collection.json`
 
-### Quick Test with curl
+## Quick Test
 
-**Health check:**
+### Fraud Check With API Key
+
 ```bash
-curl http://localhost:8000/health
-```
-
-**Check-fraud with enrichment:**
-```bash
-curl -X POST http://localhost:8000/check-fraud \
-  -H "Authorization: Bearer <token>" \
+curl -X POST http://localhost:8000/api/v1/check-fraud \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: fs_live_xxxxxxxxxxxxx" \
+  -H "Idempotency-Key: fraud-check-demo-001" \
   -d '{
     "user_id": 1,
     "organisation_id": 1,
     "amount": 500,
     "currency": "USD",
-    "payment_method": "credit_card",
+    "payment_method": "card",
     "channel": "api",
     "ip_address": "8.8.8.8",
     "billing_country": "US"
   }'
 ```
-
-**Test enrichment signals:**
-```bash
-curl "http://localhost:8000/enrichment/signals/test?ip_address=8.8.8.8&billing_country=US" \
-  -H "Authorization: Bearer <token>"
-```
-
----
-
-## Architecture Notes
-
-**Zero External API Dependencies:**
-- All enrichment data (IP geolocation, BIN lookup) is stored locally in SQLite
-- No third-party API calls during fraud checks
-- Sub-100ms response times for fraud scoring
-
-**Signal Enrichment Flow:**
-1. Transaction received at `/check-fraud`
-2. Enrichment service queries local IP and BIN tables
-3. Signals merged with transaction data
-4. Rules evaluated against enriched data
-5. Risk score and decision returned
-
-**Tenant Isolation:**
 - JWT `org_id` claim enforces organization boundaries
 - All queries filtered by `organisation_id`
 - Users cannot access other organizations' data

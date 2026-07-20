@@ -2,116 +2,285 @@
   "info": {
     "name": "FraudSentinal API v1",
     "_postman_id": "8aa4b2c2-9026-4d1c-b0f8-b9b7f4d74900",
+    "description": "Versioned public API collection for FraudSentinal. Includes JWT onboarding, service-account key management, idempotent writes, and paginated list reads.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:8000" },
     { "key": "jwtToken", "value": "" },
     { "key": "apiKey", "value": "" },
-    { "key": "serviceAccountId", "value": "" }
+    { "key": "serviceAccountId", "value": "" },
+    { "key": "organisationId", "value": "1" },
+    { "key": "userId", "value": "1" }
   ],
   "item": [
     {
-      "name": "Auth - Register",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{baseUrl}}/api/v1/auth/register",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"owner@example.com\",\n  \"password\": \"StrongPass123!\",\n  \"organisation_name\": \"Acme\"\n}"
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"owner@example.com\",\n  \"password\": \"StrongPass123!\",\n  \"organisation_name\": \"Acme\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"owner@example.com\",\n  \"password\": \"StrongPass123!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Service Accounts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }],
+            "url": "{{baseUrl}}/api/v1/auth/service-accounts?limit=25&offset=0&sort_by=created_at&sort_dir=desc"
+          }
+        },
+        {
+          "name": "Create Service Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwtToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/service-accounts",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"organisation_id\": {{organisationId}},\n  \"name\": \"fraud-worker\",\n  \"description\": \"Ingestion worker\",\n  \"scopes\": [\"fraud:check\", \"transactions:write\", \"transactions:read\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Create API Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwtToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/v1/auth/service-accounts/{{serviceAccountId}}/keys",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"primary\",\n  \"scopes\": [\"fraud:check\", \"transactions:write\", \"transactions:read\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "List API Keys",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }],
+            "url": "{{baseUrl}}/api/v1/auth/service-accounts/{{serviceAccountId}}/keys?limit=25&offset=0&sort_by=created_at&sort_dir=desc"
+          }
         }
-      }
+      ]
     },
     {
-      "name": "Auth - Login",
-      "request": {
-        "method": "POST",
-        "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "{{baseUrl}}/api/v1/auth/login",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"owner@example.com\",\n  \"password\": \"StrongPass123!\"\n}"
+      "name": "Fraud",
+      "item": [
+        {
+          "name": "Submit Fraud Check",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{apiKey}}" },
+              { "key": "Idempotency-Key", "value": "fraud-check-demo-001" }
+            ],
+            "url": "{{baseUrl}}/api/v1/check-fraud",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": {{userId}},\n  \"organisation_id\": {{organisationId}},\n  \"amount\": 149.95,\n  \"currency\": \"USD\",\n  \"payment_method\": \"card\",\n  \"channel\": \"api\",\n  \"customer_id\": \"cust_001\",\n  \"metadata\": {\"source\": \"postman\"}\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{apiKey}}" },
+              { "key": "Idempotency-Key", "value": "transaction-demo-001" }
+            ],
+            "url": "{{baseUrl}}/api/v1/transactions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": {{userId}},\n  \"organisation_id\": {{organisationId}},\n  \"amount\": 49.50,\n  \"currency\": \"USD\",\n  \"payment_method\": \"card\",\n  \"channel\": \"api\",\n  \"customer_id\": \"cust_002\",\n  \"metadata\": {\"source\": \"postman\"}\n}"
+            }
+          }
+        },
+        {
+          "name": "List Transactions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }],
+            "url": "{{baseUrl}}/api/v1/transactions?limit=25&offset=0&sort_by=created_at&sort_dir=desc"
+          }
         }
-      }
+      ]
     },
     {
-      "name": "Service Accounts - Create",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "Authorization", "value": "Bearer {{jwtToken}}" }
-        ],
-        "url": "{{baseUrl}}/api/v1/auth/service-accounts",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"organisation_id\": 1,\n  \"name\": \"fraud-worker\",\n  \"description\": \"Ingestion worker\",\n  \"scopes\": [\"fraud:check\", \"transactions:write\", \"transactions:read\"]\n}"
+      "name": "Usage",
+      "item": [
+        {
+          "name": "Create Usage Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{apiKey}}" },
+              { "key": "Idempotency-Key", "value": "usage-event-demo-001" }
+            ],
+            "url": "{{baseUrl}}/api/v1/usage/events",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": {{userId}},\n  \"organisation_id\": {{organisationId}},\n  \"event_type\": \"fraud_check\",\n  \"units\": 1,\n  \"unit_type\": \"request\",\n  \"description\": \"Fraud check usage\",\n  \"status\": \"recorded\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Usage Events",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }],
+            "url": "{{baseUrl}}/api/v1/usage/events?limit=25&offset=0&sort_by=recorded_at&sort_dir=desc"
+          }
+        },
+        {
+          "name": "List Usage Summaries",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }],
+            "url": "{{baseUrl}}/api/v1/usage/summaries?limit=25&offset=0&sort_by=period_start&sort_dir=desc"
+          }
         }
-      }
+      ]
     },
     {
-      "name": "API Keys - Create",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "Authorization", "value": "Bearer {{jwtToken}}" }
-        ],
-        "url": "{{baseUrl}}/api/v1/auth/service-accounts/{{serviceAccountId}}/keys",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"name\": \"primary\",\n  \"scopes\": [\"fraud:check\", \"transactions:write\", \"transactions:read\"]\n}"
+      "name": "Billing",
+      "item": [
+        {
+          "name": "List Billing Plans",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }],
+            "url": "{{baseUrl}}/api/v1/billing/plans?is_active=true&limit=25&offset=0&sort_by=created_at&sort_dir=desc"
+          }
+        },
+        {
+          "name": "Create Billing Record",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{apiKey}}" },
+              { "key": "Idempotency-Key", "value": "billing-demo-001" }
+            ],
+            "url": "{{baseUrl}}/api/v1/billing/records",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": {{userId}},\n  \"organisation_id\": {{organisationId}},\n  \"amount\": 25.0,\n  \"currency\": \"USD\",\n  \"status\": \"pending\",\n  \"invoice_id\": \"inv_postman_001\",\n  \"description\": \"Demo billing record\",\n  \"billing_period_start\": \"2026-07-01T00:00:00Z\",\n  \"billing_period_end\": \"2026-07-31T23:59:59Z\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Billing Records",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }],
+            "url": "{{baseUrl}}/api/v1/billing/records?status=pending&limit=25&offset=0&sort_by=created_at&sort_dir=desc"
+          }
         }
-      }
+      ]
     },
     {
-      "name": "Fraud Check - Submit",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "X-API-Key", "value": "{{apiKey}}" },
-          { "key": "Idempotency-Key", "value": "fraud-check-demo-001" }
-        ],
-        "url": "{{baseUrl}}/api/v1/check-fraud",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"user_id\": 1,\n  \"organisation_id\": 1,\n  \"amount\": 149.95,\n  \"currency\": \"USD\",\n  \"payment_method\": \"card\",\n  \"channel\": \"api\",\n  \"customer_id\": \"cust_001\",\n  \"metadata\": {\"source\": \"postman\"}\n}"
+      "name": "Operations",
+      "item": [
+        {
+          "name": "List Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }],
+            "url": "{{baseUrl}}/api/v1/audit?limit=25&offset=0&sort_by=created_at&sort_dir=desc"
+          }
+        },
+        {
+          "name": "List Usage Limits",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }],
+            "url": "{{baseUrl}}/api/v1/limit-tracking/limits?limit=25&offset=0&sort_by=created_at&sort_dir=desc"
+          }
+        },
+        {
+          "name": "List Sessions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }],
+            "url": "{{baseUrl}}/api/v1/sessions?limit=25&offset=0&sort_by=started_at&sort_dir=desc"
+          }
+        },
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }],
+            "url": "{{baseUrl}}/api/v1/users?limit=25&offset=0&sort_by=created_at&sort_dir=desc"
+          }
+        },
+        {
+          "name": "List Organisations",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }],
+            "url": "{{baseUrl}}/api/v1/organisations?limit=25&offset=0&sort_by=created_at&sort_dir=desc"
+          }
         }
-      }
+      ]
     },
     {
-      "name": "Transactions - Create",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "X-API-Key", "value": "{{apiKey}}" },
-          { "key": "Idempotency-Key", "value": "transaction-demo-001" }
-        ],
-        "url": "{{baseUrl}}/api/v1/transactions",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"user_id\": 1,\n  \"organisation_id\": 1,\n  \"amount\": 49.50,\n  \"currency\": \"USD\",\n  \"payment_method\": \"card\",\n  \"channel\": \"api\",\n  \"customer_id\": \"cust_002\",\n  \"metadata\": {\"source\": \"postman\"}\n}"
+      "name": "Enrichment",
+      "item": [
+        {
+          "name": "Enrichment Health",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }],
+            "url": "{{baseUrl}}/api/v1/enrichment/health"
+          }
+        },
+        {
+          "name": "List IP Geolocation Records",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }],
+            "url": "{{baseUrl}}/api/v1/enrichment/ip-geolocation/list?limit=25&offset=0&sort_by=created_at&sort_dir=desc"
+          }
+        },
+        {
+          "name": "List BIN Lookup Records",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }],
+            "url": "{{baseUrl}}/api/v1/enrichment/bin-lookup/list?limit=25&offset=0&sort_by=created_at&sort_dir=desc"
+          }
         }
-      }
-    },
-    {
-      "name": "Billing Records - Create",
-      "request": {
-        "method": "POST",
-        "header": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "X-API-Key", "value": "{{apiKey}}" },
-          { "key": "Idempotency-Key", "value": "billing-demo-001" }
-        ],
-        "url": "{{baseUrl}}/api/v1/billing/records",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"user_id\": 1,\n  \"organisation_id\": 1,\n  \"amount\": 25.0,\n  \"currency\": \"USD\",\n  \"status\": \"pending\",\n  \"invoice_id\": \"inv_postman_001\",\n  \"description\": \"Demo billing record\",\n  \"billing_period_start\": \"2026-07-01T00:00:00Z\",\n  \"billing_period_end\": \"2026-07-31T23:59:59Z\"\n}"
-        }
-      }
+      ]
     }
   ]
 }

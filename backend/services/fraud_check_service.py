@@ -10,6 +10,7 @@ from schemas.risk_signal_schemas import RiskSignalCreate
 from services import (
     device_fingerprint_service,
     decision_service,
+    entitlement_service,
     fraud_rule_service,
     review_case_service,
     risk_signal_service,
@@ -123,6 +124,16 @@ def check_fraud_service(db: Session, payload: FraudCheckRequest) -> FraudCheckRe
         device_fingerprint_service.remember_device_fingerprint(
             db,
             payload,
+            commit=False,
+        )
+        entitlement_service.record_consumption(
+            db,
+            organisation_id=transaction.organisation_id,
+            user_id=transaction.user_id,
+            meter_key="fraud_checks",
+            units=1.0,
+            currency=transaction.currency,
+            description=f"Fraud check for transaction {transaction.id}",
             commit=False,
         )
         db.commit()

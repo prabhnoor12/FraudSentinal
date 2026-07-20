@@ -1,76 +1,99 @@
-# FraudSentinel
+# FraudSentinal
 
-Real-time fraud detection API for e-commerce, fintech, and SaaS platforms.
+Real-time fraud detection and risk operations platform for e-commerce, fintech, and SaaS workflows.
 
 ## Overview
 
-FraudSentinel is a lightweight, high-performance fraud detection API that analyzes transactions in real-time (< 100ms) and provides actionable risk decisions.
+FraudSentinal exposes a versioned public API for:
 
-## Features
+- fraud scoring
+- transaction and review workflows
+- usage metering
+- billing operations
+- audit visibility
+- tenant and service-account administration
+- enrichment data access
 
-- ✅ Real-time fraud scoring (< 100ms latency)
-- ✅ Device fingerprinting & geolocation analysis
-- ✅ Machine learning-based risk assessment
-- ✅ Customizable fraud rules
-- ✅ 99.99% uptime SLA
-- ✅ Easy REST API integration
+## Public API
+
+- Base URL: `http://localhost:8000`
+- Version prefix: `/api/v1`
+- Swagger UI: `http://localhost:8000/docs`
+- OpenAPI JSON: `http://localhost:8000/openapi.json`
+
+## Authentication
+
+- `Authorization: Bearer <jwt>` for interactive user access
+- `X-API-Key: <service_account_key>` for machine-to-machine access
+
+## Shared v1 Conventions
+
+- Mutating calls use `Idempotency-Key`
+- Responses include `X-Request-ID`
+- Collection endpoints return:
+
+```json
+{
+  "items": [],
+  "pagination": {
+    "total": 0,
+    "limit": 25,
+    "offset": 0,
+    "next": null,
+    "previous": null
+  }
+}
+```
 
 ## Quick Start
 
-### Installation
+### Run The Backend
 
 ```bash
-git clone https://github.com/yourusername/fraudsentinel.git
-cd fraudsentinel
+cd backend
+python -m uvicorn app:app --reload
+```
 
-# Install dependencies
-go mod download
+### Quick Fraud Check
 
-# Set environment variables
-cp .env.example .env
-
-
+```bash
 curl -X POST http://localhost:8000/api/v1/check-fraud \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "X-API-Key: YOUR_SERVICE_ACCOUNT_KEY" \
+  -H "Idempotency-Key: fraud-check-demo-001" \
   -d '{
-    "transaction_id": "txn_12345",
+    "user_id": 1,
+    "organisation_id": 1,
     "amount": 99.99,
     "currency": "USD",
-    "card_token": "tok_visa",
-    "user_id": "user_789"
+    "payment_method": "card",
+    "channel": "api",
+    "customer_id": "cust_demo"
   }'
+```
 
+## Developer Resources
 
-{
-  "transaction_id": "txn_12345",
-  "risk_score": 0.28,
-  "decision": "approve",
-  "timestamp": "2024-07-13T14:32:01Z"
-}
+- Contract reference: `backend/API_V1_CONTRACT.md`
+- API reference: `API_DOCUMENTATION.md`
+- Examples: `backend/examples/API_V1_EXAMPLES.md`
+- Postman collection: `postman/FraudSentinal API v1.postman_collection.json`
 
+## Core v1 Routes
 
-Endpoints
-POST /api/v1/check-fraud - Check transaction for fraud
-GET /api/v1/transactions - List transactions
-GET /api/v1/dashboard/metrics - Get fraud metrics
+- `POST /api/v1/check-fraud`
+- `GET /api/v1/transactions`
+- `GET /api/v1/review-cases`
+- `GET /api/v1/usage/events`
+- `GET /api/v1/billing/records`
+- `GET /api/v1/audit`
+- `GET /api/v1/enrichment/ip-geolocation/list`
 
-Pricing
-Pay-as-You-Go: $0.01 - $0.05 per transaction
-Enterprise: Custom pricing for high-volume users
-Free Tier: 1,000 transactions/month
+## Security Highlights
 
-Performance
-Latency: < 100ms (p95)
-Throughput: 10,000+ transactions/second
-Uptime: 99.99% SLA
-Accuracy: 98%+ fraud detection
-
-Security
-PCI DSS compliant
-End-to-end encryption
-API key authentication
-Audit logs & rate limiting
-
-# Run server
-go run main.go
+- service-account API keys with scopes
+- request IDs on all responses
+- standardized error envelope
+- idempotent write handling with replay protection
+- rate limiting and audit logging
+- tenant-aware filtering across list endpoints

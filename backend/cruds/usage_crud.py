@@ -1,14 +1,19 @@
+from datetime import datetime
+
 from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session
 
 from models.usage_models import UsageEvent, UsageSummary
 
 
-def create_usage_event(db: Session, **data) -> UsageEvent:
+def create_usage_event(db: Session, *, commit: bool = True, **data) -> UsageEvent:
     usage_event = UsageEvent(**data)
     db.add(usage_event)
-    db.commit()
-    db.refresh(usage_event)
+    if commit:
+        db.commit()
+        db.refresh(usage_event)
+    else:
+        db.flush()
     return usage_event
 
 
@@ -55,11 +60,50 @@ def count_usage_events(
     return query.scalar() or 0
 
 
-def create_usage_summary(db: Session, **data) -> UsageSummary:
+def create_usage_summary(db: Session, *, commit: bool = True, **data) -> UsageSummary:
     usage_summary = UsageSummary(**data)
     db.add(usage_summary)
-    db.commit()
-    db.refresh(usage_summary)
+    if commit:
+        db.commit()
+        db.refresh(usage_summary)
+    else:
+        db.flush()
+    return usage_summary
+
+
+def get_usage_summary_for_period(
+    db: Session,
+    *,
+    user_id: int,
+    organisation_id: int,
+    period_start: datetime,
+    period_end: datetime,
+    currency: str,
+) -> UsageSummary | None:
+    return (
+        db.query(UsageSummary)
+        .filter(
+            UsageSummary.user_id == user_id,
+            UsageSummary.organisation_id == organisation_id,
+            UsageSummary.period_start == period_start,
+            UsageSummary.period_end == period_end,
+            UsageSummary.currency == currency,
+        )
+        .first()
+    )
+
+
+def update_usage_summary(
+    db: Session, usage_summary: UsageSummary, *, commit: bool = True, **updates
+) -> UsageSummary:
+    for field, value in updates.items():
+        if value is not None:
+            setattr(usage_summary, field, value)
+    if commit:
+        db.commit()
+        db.refresh(usage_summary)
+    else:
+        db.flush()
     return usage_summary
 
 

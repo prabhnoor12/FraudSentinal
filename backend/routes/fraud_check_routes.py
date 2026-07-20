@@ -5,6 +5,9 @@ from sqlalchemy.orm import Session
 from auth_dependencies import (
     get_current_org_id,
     get_current_principal,
+    require_active_subscription,
+    require_feature,
+    require_quota,
     require_scopes,
 )
 from database import get_db
@@ -47,6 +50,9 @@ def check_fraud(
     payload: FraudCheckRequest,
     org_id: int = Depends(get_current_org_id),
     principal=Depends(require_scopes("fraud:check")),
+    entitlements=Depends(require_active_subscription()),
+    fraud_feature=Depends(require_feature("fraud_detection")),
+    fraud_quota=Depends(require_quota("fraud_checks")),
     audit_ctx: AuditContext = Depends(get_audit_ctx),
     db: Session = Depends(get_db),
 ):

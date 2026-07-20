@@ -18,7 +18,7 @@ The main usage unit should be `fraud checks per month`, with overage pricing for
 
 This backend is not just a basic scoring endpoint. It already includes:
 
-- Real-time fraud scoring via `POST /check-fraud`
+- Real-time fraud scoring via `POST /api/v1/check-fraud`
 - Configurable fraud rules and rule management APIs
 - IP geolocation and BIN enrichment
 - Velocity-based risk signals
@@ -50,7 +50,7 @@ Because of that, the right move is `mid-market pricing`, not bargain-basement pr
 **Includes:**
 
 - Up to `1,000 fraud checks/month`
-- Basic access to `/check-fraud`
+- Basic access to `/api/v1/check-fraud`
 - Test access to enrichment features
 - Basic API evaluation for one team
 - No SLA
@@ -177,7 +177,7 @@ Use `successful fraud check requests` as the main billable unit.
 
 A clean billing rule is:
 
-- Count every successful call to `POST /check-fraud`
+- Count every successful call to `POST /api/v1/check-fraud`
 - Do not bill health checks
 - Do not bill internal admin operations like rule edits or audit exports
 - Optionally bill enrichment-only endpoints only on higher plans if they are used heavily

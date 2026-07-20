@@ -1,7 +1,13 @@
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
-from auth_dependencies import get_current_org_id, get_current_principal, require_scopes
+from auth_dependencies import (
+    get_current_org_id,
+    get_current_principal,
+    require_active_subscription,
+    require_feature,
+    require_scopes,
+)
 from database import get_db
 from schemas.usage_schemas import (
     UsageEventCreate,
@@ -34,7 +40,11 @@ def require_auth(
     response_model=UsageEventListResponse,
     summary="List usage events",
     description="Returns usage events for the authenticated organisation with the shared v1 paginated envelope.",
-    dependencies=[Depends(require_scopes("usage:read"))],
+    dependencies=[
+        Depends(require_scopes("usage:read")),
+        Depends(require_active_subscription()),
+        Depends(require_feature("usage")),
+    ],
 )
 def list_usage_events(
     request: Request,
@@ -72,9 +82,18 @@ def list_usage_events(
     status_code=status.HTTP_201_CREATED,
     summary="Create usage event",
     description="Creates a usage event. Public clients should send a stable Idempotency-Key for retries.",
-    dependencies=[Depends(require_scopes("usage:write"))],
+    dependencies=[
+        Depends(require_scopes("usage:write")),
+        Depends(require_active_subscription()),
+        Depends(require_feature("usage")),
+    ],
 )
-def create_usage_event(payload: UsageEventCreate, db: Session = Depends(get_db)):
+def create_usage_event(
+    payload: UsageEventCreate,
+    org_id: int = Depends(get_current_org_id),
+    db: Session = Depends(get_db),
+):
+    payload.organisation_id = org_id
     return usage_service.create_usage_event_service(db, payload)
 
 
@@ -83,7 +102,11 @@ def create_usage_event(payload: UsageEventCreate, db: Session = Depends(get_db))
     response_model=UsageSummaryListResponse,
     summary="List usage summaries",
     description="Returns aggregated usage summaries for the authenticated organisation using the shared v1 paginated envelope.",
-    dependencies=[Depends(require_scopes("usage:read"))],
+    dependencies=[
+        Depends(require_scopes("usage:read")),
+        Depends(require_active_subscription()),
+        Depends(require_feature("usage")),
+    ],
 )
 def list_usage_summaries(
     request: Request,
@@ -119,7 +142,16 @@ def list_usage_summaries(
     "/summaries",
     response_model=UsageSummaryOut,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_scopes("usage:write"))],
+    dependencies=[
+        Depends(require_scopes("usage:write")),
+        Depends(require_active_subscription()),
+        Depends(require_feature("usage")),
+    ],
 )
-def create_usage_summary(payload: UsageSummaryCreate, db: Session = Depends(get_db)):
+def create_usage_summary(
+    payload: UsageSummaryCreate,
+    org_id: int = Depends(get_current_org_id),
+    db: Session = Depends(get_db),
+):
+    payload.organisation_id = org_id
     return usage_service.create_usage_summary_service(db, payload)
