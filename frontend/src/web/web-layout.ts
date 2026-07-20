@@ -13,6 +13,8 @@ import { api, getAccessToken } from './api';
 
           <nav class="fs-nav">
             <a routerLink="/dashboard" routerLinkActive="is-active">Dashboard</a>
+            <a routerLink="/review-cases" routerLinkActive="is-active">Review Cases</a>
+            <a routerLink="/fraud-rules" routerLinkActive="is-active">Fraud Rules</a>
             <a routerLink="/usage" routerLinkActive="is-active">Usage</a>
             <a routerLink="/audit" routerLinkActive="is-active">Audit</a>
             <a routerLink="/billing" routerLinkActive="is-active">Billing</a>

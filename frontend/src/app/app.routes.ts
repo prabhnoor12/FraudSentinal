@@ -26,6 +26,36 @@ export const routes: Routes = [
         loadComponent: () => import('../web/dashboard/dashboard.page').then((m) => m.DashboardPage),
       },
       {
+        path: 'review-cases',
+        canActivate: [authGuard],
+        loadComponent: () =>
+          import('../web/review-cases/review-cases.page').then((m) => m.ReviewCasesPage),
+      },
+      {
+        path: 'review-cases/:caseId',
+        canActivate: [authGuard],
+        loadComponent: () =>
+          import('../web/review-cases/review-case-detail.page').then((m) => m.ReviewCaseDetailPage),
+      },
+      {
+        path: 'transactions/:transactionId',
+        canActivate: [authGuard],
+        loadComponent: () =>
+          import('../web/transactions/transaction-detail.page').then((m) => m.TransactionDetailPage),
+      },
+      {
+        path: 'fraud-rules',
+        canActivate: [authGuard],
+        loadComponent: () =>
+          import('../web/fraud-rules/fraud-rules.page').then((m) => m.FraudRulesPage),
+      },
+      {
+        path: 'fraud-rules/:ruleId/edit',
+        canActivate: [authGuard],
+        loadComponent: () =>
+          import('../web/fraud-rules/fraud-rule-edit.page').then((m) => m.FraudRuleEditPage),
+      },
+      {
         path: 'usage',
         canActivate: [authGuard],
         loadComponent: () => import('../web/usage/usage.page').then((m) => m.UsagePage),

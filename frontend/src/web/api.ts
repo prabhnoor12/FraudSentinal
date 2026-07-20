@@ -1,4 +1,4 @@
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 export type ApiError = {
   status: number;
@@ -13,6 +13,96 @@ export type TokenResponse = {
   mfa_required?: boolean;
   pre_auth_token?: string | null;
   message?: string | null;
+};
+
+export type AuthUser = {
+  id: number;
+  organisation_id?: number | null;
+  email: string;
+  full_name?: string | null;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type ReviewCase = {
+  id: number;
+  transaction_id: number;
+  decision_id: number;
+  organisation_id: number;
+  user_id: number;
+  status: 'open' | 'resolved';
+  resolution_code?: string | null;
+  notes?: string | null;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  resolved_at?: string | null;
+};
+
+export type FraudRule = {
+  id: number;
+  name: string;
+  rule_code: string;
+  description?: string | null;
+  organisation_id?: number | null;
+  reason_code: string;
+  weight: number;
+  field_name: string;
+  operator: string;
+  comparison_value: JsonValue;
+  secondary_field_name?: string | null;
+  enabled: boolean;
+  priority: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Transaction = {
+  id: number;
+  user_id: number;
+  organisation_id: number;
+  external_transaction_id?: string | null;
+  amount: number;
+  currency: string;
+  payment_method: string;
+  channel: string;
+  customer_id?: string | null;
+  customer_email?: string | null;
+  billing_country?: string | null;
+  shipping_country?: string | null;
+  ip_address?: string | null;
+  device_id?: string | null;
+  account_age_days?: number | null;
+  transactions_last_24h: number;
+  failed_attempts_last_24h: number;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+};
+
+export type Decision = {
+  id: number;
+  transaction_id: number;
+  user_id: number;
+  organisation_id: number;
+  risk_score: number;
+  decision: 'approve' | 'review' | 'decline';
+  reason_codes: string[];
+  scoring_snapshot?: Record<string, unknown> | null;
+  created_at: string;
+};
+
+export type RiskSignal = {
+  id: number;
+  transaction_id: number;
+  decision_id: number;
+  organisation_id: number;
+  user_id: number;
+  rule_id?: number | null;
+  rule_code: string;
+  reason_code: string;
+  weight: number;
+  details?: Record<string, unknown>;
+  created_at: string;
 };
 
 type RequestOptions = {
@@ -184,7 +274,7 @@ export const api = {
         clearTokens();
       }
     },
-    async me(): Promise<unknown> {
+    async me(): Promise<AuthUser> {
       return apiRequest('GET', '/auth/me', { auth: true });
     },
   },
@@ -207,12 +297,135 @@ export const api = {
       return apiRequest('GET', '/usage/summaries', { auth: true });
     },
   },
+  transactions: {
+    async get(transactionId: number): Promise<Transaction> {
+      return apiRequest('GET', `/transactions/${transactionId}`, { auth: true });
+    },
+  },
+  decisions: {
+    async list(params?: { transaction_id?: number; user_id?: number; limit?: number }): Promise<Decision[]> {
+      return apiRequest('GET', '/decisions', {
+        auth: true,
+        query: {
+          transaction_id: params?.transaction_id,
+          user_id: params?.user_id,
+          limit: params?.limit ?? 20,
+        },
+      });
+    },
+  },
+  riskSignals: {
+    async list(params?: {
+      transaction_id?: number;
+      decision_id?: number;
+      limit?: number;
+    }): Promise<RiskSignal[]> {
+      return apiRequest('GET', '/risk-signals', {
+        auth: true,
+        query: {
+          transaction_id: params?.transaction_id,
+          decision_id: params?.decision_id,
+          limit: params?.limit ?? 100,
+        },
+      });
+    },
+  },
   settings: {
     async get(organisationId: number): Promise<unknown> {
       return apiRequest('GET', `/settings/${organisationId}`, { auth: true });
     },
     async update(organisationId: number, payload: Record<string, JsonValue>): Promise<unknown> {
       return apiRequest('PUT', `/settings/${organisationId}`, { auth: true, body: payload });
+    },
+  },
+  reviewCases: {
+    async list(params?: {
+      status?: 'open' | 'resolved';
+      limit?: number;
+      transaction_id?: number;
+      decision_id?: number;
+    }): Promise<ReviewCase[]> {
+      return apiRequest('GET', '/review-cases', {
+        auth: true,
+        query: {
+          status: params?.status,
+          limit: params?.limit ?? 100,
+          transaction_id: params?.transaction_id,
+          decision_id: params?.decision_id,
+        },
+      });
+    },
+    async listMyQueue(limit = 100): Promise<ReviewCase[]> {
+      return apiRequest('GET', '/review-cases/queue/my', {
+        auth: true,
+        query: { limit },
+      });
+    },
+    async get(caseId: number): Promise<ReviewCase> {
+      return apiRequest('GET', `/review-cases/${caseId}`, { auth: true });
+    },
+    async resolve(caseId: number, payload: {
+      resolution_code: string;
+      notes?: string | null;
+      metadata?: Record<string, JsonValue> | null;
+    }): Promise<ReviewCase> {
+      return apiRequest('POST', `/review-cases/${caseId}/resolve`, { auth: true, body: payload });
+    },
+    async reopen(caseId: number, payload: {
+      reason?: string | null;
+      metadata?: Record<string, JsonValue> | null;
+    }): Promise<ReviewCase> {
+      return apiRequest('POST', `/review-cases/${caseId}/reopen`, { auth: true, body: payload });
+    },
+  },
+  fraudRules: {
+    async list(params?: { enabled?: boolean; limit?: number }): Promise<FraudRule[]> {
+      return apiRequest('GET', '/fraud-rules', {
+        auth: true,
+        query: {
+          enabled: params?.enabled,
+          limit: params?.limit ?? 100,
+        },
+      });
+    },
+    async create(payload: {
+      name: string;
+      rule_code: string;
+      description?: string | null;
+      reason_code: string;
+      weight: number;
+      field_name: string;
+      operator: string;
+      comparison_value: JsonValue;
+      priority: number;
+      secondary_field_name?: string | null;
+      enabled?: boolean;
+    }): Promise<FraudRule> {
+      return apiRequest('POST', '/fraud-rules', { auth: true, body: payload });
+    },
+    async get(ruleId: number): Promise<FraudRule> {
+      return apiRequest('GET', `/fraud-rules/${ruleId}`, { auth: true });
+    },
+    async update(ruleId: number, payload: {
+      name?: string;
+      rule_code?: string;
+      description?: string | null;
+      reason_code?: string;
+      weight?: number;
+      field_name?: string;
+      operator?: string;
+      comparison_value?: JsonValue;
+      priority?: number;
+      secondary_field_name?: string | null;
+      enabled?: boolean;
+    }): Promise<FraudRule> {
+      return apiRequest('PUT', `/fraud-rules/${ruleId}`, { auth: true, body: payload });
+    },
+    async enable(ruleId: number): Promise<FraudRule> {
+      return apiRequest('POST', `/fraud-rules/${ruleId}/enable`, { auth: true });
+    },
+    async disable(ruleId: number): Promise<FraudRule> {
+      return apiRequest('POST', `/fraud-rules/${ruleId}/disable`, { auth: true });
     },
   },
 };

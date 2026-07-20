@@ -47,17 +47,17 @@ type AuditLog = {
               <tbody>
                 @for (l of logs(); track l.id ?? $index) {
                   <tr>
-                    <td>{{ l.id ?? '' }}</td>
-                    <td>{{ l.created_at ?? '' }}</td>
-                    <td>{{ l.event_type ?? '' }}</td>
-                    <td>{{ l.action ?? '' }}</td>
-                    <td>
+                    <td data-label="ID">{{ l.id ?? '' }}</td>
+                    <td data-label="Timestamp">{{ l.created_at ?? '' }}</td>
+                    <td data-label="Type">{{ l.event_type ?? '' }}</td>
+                    <td data-label="Action">{{ l.action ?? '' }}</td>
+                    <td data-label="Resource">
                       {{ l.resource_type ?? '' }}
                       @if (l.resource_id) {
                         #{{ l.resource_id }}
                       }
                     </td>
-                    <td>{{ l.ip_address ?? '' }}</td>
+                    <td data-label="IP">{{ l.ip_address ?? '' }}</td>
                   </tr>
                 }
               </tbody>
@@ -96,4 +96,3 @@ export class AuditPage {
     }
   }
 }
-
