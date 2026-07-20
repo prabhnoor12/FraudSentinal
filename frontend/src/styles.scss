@@ -1,1 +1,336 @@
-/* You can add global styles to this file, and also import other style files */
+:root {
+  --fs-bg: #0b1020;
+  --fs-surface: rgba(255, 255, 255, 0.06);
+  --fs-surface-2: rgba(255, 255, 255, 0.09);
+  --fs-border: rgba(255, 255, 255, 0.12);
+  --fs-text: rgba(255, 255, 255, 0.92);
+  --fs-muted: rgba(255, 255, 255, 0.65);
+  --fs-primary: #6d5efc;
+  --fs-danger: #ff4d67;
+  --fs-radius: 14px;
+  --fs-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  --fs-container: 1120px;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(1200px 800px at 20% 10%, rgba(109, 94, 252, 0.25), transparent 60%),
+    radial-gradient(1000px 700px at 90% 30%, rgba(255, 77, 103, 0.18), transparent 55%),
+    var(--fs-bg);
+  color: var(--fs-text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.fs-container {
+  width: min(var(--fs-container), calc(100% - 32px));
+  margin: 0 auto;
+}
+
+.fs-app {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.fs-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  backdrop-filter: blur(14px);
+  background: rgba(11, 16, 32, 0.65);
+  border-bottom: 1px solid var(--fs-border);
+}
+
+.fs-header-inner {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.fs-brand {
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.fs-nav {
+  display: flex;
+  gap: 14px;
+  flex: 1;
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+.fs-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.fs-nav a {
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: var(--fs-muted);
+  white-space: nowrap;
+}
+
+.fs-nav a.is-active {
+  background: var(--fs-surface);
+  color: var(--fs-text);
+}
+
+.fs-header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.fs-main {
+  padding: 22px 0 40px;
+  flex: 1;
+}
+
+.fs-footer {
+  padding: 16px 0;
+  border-top: 1px solid var(--fs-border);
+  color: var(--fs-muted);
+  font-size: 13px;
+}
+
+.fs-footer-inner {
+  display: flex;
+  justify-content: space-between;
+}
+
+.fs-page-header {
+  margin-bottom: 18px;
+}
+
+.fs-page-header h1 {
+  font-size: 26px;
+  margin: 0 0 6px;
+}
+
+.fs-muted {
+  color: var(--fs-muted);
+}
+
+.fs-card {
+  background: var(--fs-surface);
+  border: 1px solid var(--fs-border);
+  border-radius: var(--fs-radius);
+  box-shadow: var(--fs-shadow);
+  padding: 16px;
+}
+
+.fs-card-header {
+  margin-bottom: 12px;
+}
+
+.fs-card-header h2,
+.fs-card-header h1 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.fs-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 860px) {
+  .fs-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fs-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.fs-link-card {
+  display: block;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--fs-border);
+  background: var(--fs-surface-2);
+}
+
+.fs-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.fs-list-item {
+  border: 1px solid var(--fs-border);
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.fs-list-title {
+  font-weight: 600;
+}
+
+.fs-list-meta {
+  margin-top: 3px;
+  color: var(--fs-muted);
+  font-size: 13px;
+}
+
+.fs-form {
+  display: grid;
+  gap: 12px;
+}
+
+.fs-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .fs-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fs-field {
+  display: grid;
+  gap: 6px;
+}
+
+.fs-field-full {
+  grid-column: 1 / -1;
+}
+
+.fs-field span {
+  color: var(--fs-muted);
+  font-size: 13px;
+}
+
+.fs-field-check {
+  grid-template-columns: 20px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.fs-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--fs-border);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--fs-text);
+  outline: none;
+}
+
+.fs-input:focus {
+  border-color: rgba(109, 94, 252, 0.65);
+}
+
+.fs-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(109, 94, 252, 0.55);
+  background: rgba(109, 94, 252, 0.22);
+  color: var(--fs-text);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.fs-button.is-secondary {
+  border-color: var(--fs-border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--fs-text);
+}
+
+.fs-button[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.fs-alert {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--fs-border);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.fs-alert.is-error {
+  border-color: rgba(255, 77, 103, 0.35);
+  background: rgba(255, 77, 103, 0.12);
+}
+
+.fs-alert.is-info {
+  border-color: rgba(109, 94, 252, 0.35);
+  background: rgba(109, 94, 252, 0.12);
+}
+
+.fs-skeleton {
+  color: var(--fs-muted);
+}
+
+.fs-auth {
+  min-height: calc(100vh - 140px);
+  display: grid;
+  place-items: center;
+  padding: 24px 0;
+}
+
+.fs-auth-card {
+  width: min(520px, 100%);
+}
+
+.fs-auth-footer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+.fs-table-wrap {
+  overflow: auto;
+}
+
+.fs-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 860px;
+}
+
+.fs-table th,
+.fs-table td {
+  border-bottom: 1px solid var(--fs-border);
+  padding: 10px 8px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.fs-table th {
+  color: var(--fs-muted);
+  font-weight: 600;
+}
