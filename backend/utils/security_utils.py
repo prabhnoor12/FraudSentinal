@@ -286,6 +286,29 @@ def get_trusted_proxy_networks() -> list[str]:
     return values
 
 
+def is_production_environment() -> bool:
+    """Return True when the app is configured to run in production mode."""
+    environment = (
+        os.getenv("APP_ENV")
+        or os.getenv("ENVIRONMENT")
+        or os.getenv("FASTAPI_ENV")
+        or "development"
+    )
+    return environment.strip().lower() in {"prod", "production"}
+
+
+def validate_production_hardening() -> None:
+    """Validate required production-only security configuration."""
+    if not is_production_environment():
+        return
+
+    if not os.getenv("REDIS_URL"):
+        raise ValueError("REDIS_URL must be configured in production")
+
+    if not get_trusted_proxy_networks():
+        raise ValueError("TRUSTED_PROXY_NETWORKS must be configured in production")
+
+
 def is_trusted_proxy_host(host: Optional[str]) -> bool:
     """Return True when the immediate client is a configured trusted proxy."""
     if not host:
@@ -348,6 +371,8 @@ __all__ = [
     "generate_hmac_signature",
     "verify_hmac_signature",
     "get_trusted_proxy_networks",
+    "is_production_environment",
+    "validate_production_hardening",
     "is_trusted_proxy_host",
     "get_request_client_ip",
 ]

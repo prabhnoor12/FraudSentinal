@@ -7,3 +7,5 @@ fraud_detection.db
 alembic/
 alembic.ini
 alembic_version/
+.pytest_cache
+.ruff_cache

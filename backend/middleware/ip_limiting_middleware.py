@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Callable, Optional, Set, Tuple
 
 from fastapi import Request
-from middleware.rate_limiting_middleware import RateLimitMiddleware
+from middleware.rate_limiting_middleware import RateLimitMiddleware, RateLimitStore
 from starlette.types import ASGIApp
 
 
@@ -25,6 +25,7 @@ class IPLimitMiddleware(RateLimitMiddleware):
         exempt_prefixes: Optional[Tuple[str, ...]] = None,
         key_func: Optional[Callable[[Request], str]] = None,
         message: str = "Too many requests from this IP",
+        rate_limit_store: Optional[RateLimitStore] = None,
     ) -> None:
         super().__init__(
             app,
@@ -35,6 +36,7 @@ class IPLimitMiddleware(RateLimitMiddleware):
             exempt_prefixes=exempt_prefixes,
             key_func=key_func,
             message=message,
+            rate_limit_store=rate_limit_store,
         )
 
 

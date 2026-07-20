@@ -12,6 +12,8 @@ from database import SessionLocal
 from middleware.ip_limiting_middleware import IPLimitMiddleware
 from middleware.logging_middleware import LoggingMiddleware
 from middleware.rate_limiting_middleware import RateLimitMiddleware
+from middleware.security_headers_middleware import SecurityHeadersMiddleware
+from redis import build_rate_limit_store
 from routes.auth_routes import router as auth_router
 from routes.audit_routes import router as audit_router
 from routes.decision_routes import router as decision_router
@@ -31,7 +33,7 @@ from routes.user_routes import router as user_router
 from routes.user_tracking_routes import router as user_tracking_router
 from services import fraud_rule_service
 from services.mfa_service import get_mfa_cipher
-from utils.security_utils import validate_secret_key
+from utils.security_utils import validate_production_hardening, validate_secret_key
 from utils.exception_handling_utils import (
     AppException,
     handle_app_exception,
@@ -55,6 +57,7 @@ async def lifespan(app: FastAPI):
     # 1. Validate Security Configuration
     try:
         validate_secret_key(SECRET_KEY)
+        validate_production_hardening()
         get_mfa_cipher()
     except ValueError as e:
         logger.critical(f"CRITICAL SECURITY CONFIGURATION ERROR: {str(e)}")
@@ -74,12 +77,21 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="FraudSentinal Backend", version="0.1.0", lifespan=lifespan)
 
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(LoggingMiddleware, exclude_paths={"/health"})
 app.add_middleware(
-    RateLimitMiddleware, calls=120, window_seconds=60, exempt_paths={"/health"}
+    RateLimitMiddleware,
+    calls=120,
+    window_seconds=60,
+    exempt_paths={"/health"},
+    rate_limit_store=build_rate_limit_store("fraudsentinel:rate_limit"),
 )
 app.add_middleware(
-    IPLimitMiddleware, calls=300, window_seconds=60, exempt_paths={"/health"}
+    IPLimitMiddleware,
+    calls=300,
+    window_seconds=60,
+    exempt_paths={"/health"},
+    rate_limit_store=build_rate_limit_store("fraudsentinel:ip_limit"),
 )
 
 app.add_exception_handler(AppException, handle_app_exception)

@@ -7,10 +7,15 @@ import pyotp
 from fastapi import status
 
 from auth import hash_password
+from models.audit_models import AuditLog
 from models.auth_models import PasswordResetToken, RefreshToken, TokenBlacklist
 from models.user_models import User
 from services.mfa_service import MFAService, get_mfa_cipher
-from utils.security_utils import fingerprint_token, get_request_client_ip
+from utils.security_utils import (
+    fingerprint_token,
+    get_request_client_ip,
+    validate_production_hardening,
+)
 
 
 def _email(prefix: str) -> str:
@@ -114,3 +119,101 @@ def test_request_client_ip_only_trusts_forwarded_headers_from_known_proxies(
 
     monkeypatch.setenv("TRUSTED_PROXY_NETWORKS", "10.0.0.0/24")
     assert get_request_client_ip(request) == "203.0.113.10"
+
+
+def test_security_headers_are_applied(client):
+    response = client.get("/health")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert "Content-Security-Policy" in response.headers
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert "Strict-Transport-Security" in response.headers
+
+
+def test_validate_production_hardening_requires_runtime_config(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.delenv("TRUSTED_PROXY_NETWORKS", raising=False)
+
+    try:
+        validate_production_hardening()
+        assert False, "Expected missing REDIS_URL to fail validation"
+    except ValueError as exc:
+        assert "REDIS_URL" in str(exc)
+
+    monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
+    try:
+        validate_production_hardening()
+        assert False, "Expected missing TRUSTED_PROXY_NETWORKS to fail validation"
+    except ValueError as exc:
+        assert "TRUSTED_PROXY_NETWORKS" in str(exc)
+
+    monkeypatch.setenv("TRUSTED_PROXY_NETWORKS", "10.0.0.0/24")
+    validate_production_hardening()
+
+
+def test_auth_security_events_are_audited(client, db):
+    email = _email("audit_auth")
+    password = "StrongPass123!"
+    _register(client, email=email, password=password)
+
+    login = client.post("/auth/login", json={"email": email, "password": password})
+    assert login.status_code == status.HTTP_200_OK
+    access_token = login.json()["access_token"]
+    refresh_token = login.json()["refresh_token"]
+
+    reset_request = client.post("/auth/password-reset/request", json={"email": email})
+    assert reset_request.status_code == status.HTTP_200_OK
+    reset_token = reset_request.json()["reset_token"]
+
+    reset_confirm = client.post(
+        "/auth/password-reset/confirm",
+        json={"token": reset_token, "new_password": "NewStrongPass123!"},
+    )
+    assert reset_confirm.status_code == status.HTTP_200_OK
+
+    refresh = client.post("/auth/refresh", json={"refresh_token": refresh_token})
+    assert refresh.status_code == status.HTTP_200_OK
+
+    logout = client.post(
+        "/auth/logout",
+        json={"refresh_token": refresh.json()["refresh_token"]},
+        headers={"Authorization": f"Bearer {refresh.json()['access_token']}"},
+    )
+    assert logout.status_code == status.HTTP_200_OK
+
+    actions = {log.action for log in db.query(AuditLog).all()}
+    assert "password_reset_requested" in actions
+    assert "password_reset_confirmed" in actions
+    assert "refresh_token_rotated" in actions
+    assert "logout" in actions
+
+
+def test_mfa_lifecycle_events_are_audited(client, db):
+    email = _email("audit_mfa")
+    password = "StrongPass123!"
+    _register(client, email=email, password=password)
+
+    login = client.post("/auth/login", json={"email": email, "password": password})
+    assert login.status_code == status.HTTP_200_OK
+    token = login.json()["access_token"]
+
+    setup = client.post("/mfa/setup", headers={"Authorization": f"Bearer {token}"})
+    assert setup.status_code == status.HTTP_200_OK
+    secret = setup.json()["secret"]
+
+    verify = client.post(
+        "/mfa/verify",
+        json={"secret": secret, "code": pyotp.TOTP(secret).now()},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert verify.status_code == status.HTTP_200_OK
+
+    disable = client.post("/mfa/disable", headers={"Authorization": f"Bearer {token}"})
+    assert disable.status_code == status.HTTP_200_OK
+
+    actions = [log.action for log in db.query(AuditLog).all()]
+    assert "mfa_setup_started" in actions
+    assert "mfa_enabled" in actions
+    assert "mfa_disabled" in actions

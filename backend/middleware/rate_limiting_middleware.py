@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from collections import defaultdict, deque
 from threading import Lock
 import time
-from typing import Callable, Deque, DefaultDict, Optional, Set, Tuple
+from typing import Callable, Deque, DefaultDict, Optional, Protocol, Set, Tuple
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -12,118 +13,91 @@ from starlette.types import ASGIApp
 from utils.security_utils import get_request_client_ip
 
 
-class RateLimitMiddleware(BaseHTTPMiddleware):
-    """A memory-based rate limiting middleware for FastAPI/Starlette.
+@dataclass
+class RateLimitDecision:
+    allowed: bool
+    remaining: int
+    reset_timestamp: int
+    retry_after: int = 0
 
-    It tracks requests by client identifier (IP address by default), enforces a
-    sliding-window limit, and returns standard rate-limit headers plus a 429
-    response when the threshold is exceeded.
 
-    The X-RateLimit-Reset header is computed based on the oldest request in the
-    current window so the client knows when the next slot becomes available.
-    """
-
-    def __init__(
+class RateLimitStore(Protocol):
+    async def register_request(
         self,
-        app: ASGIApp,
         *,
-        calls: int = 60,
-        window_seconds: int = 60,
-        block_duration_seconds: int = 60,
-        exempt_paths: Optional[Set[str]] = None,
-        exempt_prefixes: Optional[Tuple[str, ...]] = None,
-        key_func: Optional[Callable[[Request], str]] = None,
-        message: str = "Too many requests",
-    ) -> None:
-        super().__init__(app)
-        self.calls = max(1, calls)
-        self.window_seconds = max(1, window_seconds)
-        self.block_duration_seconds = max(1, block_duration_seconds)
-        self.exempt_paths = set(exempt_paths or ())
-        self.exempt_prefixes = exempt_prefixes or ()
-        self.key_func = key_func or self._default_key
-        self.message = message
+        key: str,
+        calls: int,
+        window_seconds: int,
+        block_duration_seconds: int,
+    ) -> RateLimitDecision: ...
+
+
+class MemoryRateLimitStore:
+    """Fallback in-process rate limit store for tests and local development."""
+
+    def __init__(self) -> None:
         self._request_history: DefaultDict[str, Deque[float]] = defaultdict(deque)
         self._blocked_until: DefaultDict[str, float] = defaultdict(float)
         self._lock = Lock()
 
-    async def dispatch(self, request: Request, call_next):
-        if self._should_skip(request):
-            return await call_next(request)
-
+    async def register_request(
+        self,
+        *,
+        key: str,
+        calls: int,
+        window_seconds: int,
+        block_duration_seconds: int,
+    ) -> RateLimitDecision:
         now = time.monotonic()
-        client_key = self.key_func(request)
-
         with self._lock:
             self._prune_blocked(now)
-            self._prune_history(client_key, now)
+            self._prune_history(key, now, window_seconds)
 
-            if self._is_blocked(client_key, now):
-                retry_after = max(1, int(self._blocked_until[client_key] - now))
-                reset_timestamp = int(time.time() + retry_after)
-                headers = {
-                    "Retry-After": str(retry_after),
-                    "X-RateLimit-Limit": str(self.calls),
-                    "X-RateLimit-Remaining": "0",
-                    "X-RateLimit-Reset": str(reset_timestamp),
-                }
-                return JSONResponse(
-                    status_code=429,
-                    content={"detail": self.message, "retry_after": retry_after},
-                    headers=headers,
+            if self._is_blocked(key, now):
+                retry_after = max(1, int(self._blocked_until[key] - now))
+                return RateLimitDecision(
+                    allowed=False,
+                    remaining=0,
+                    reset_timestamp=int(time.time() + retry_after),
+                    retry_after=retry_after,
                 )
 
-            history = self._request_history[client_key]
+            history = self._request_history[key]
             history.append(now)
-            remaining = max(0, self.calls - len(history))
+            remaining = max(0, calls - len(history))
 
-            if len(history) > self.calls:
-                self._blocked_until[client_key] = now + self.block_duration_seconds
-                retry_after = self.block_duration_seconds
-                reset_timestamp = int(time.time() + retry_after)
-                headers = {
-                    "Retry-After": str(retry_after),
-                    "X-RateLimit-Limit": str(self.calls),
-                    "X-RateLimit-Remaining": "0",
-                    "X-RateLimit-Reset": str(reset_timestamp),
-                }
-                return JSONResponse(
-                    status_code=429,
-                    content={"detail": self.message, "retry_after": retry_after},
-                    headers=headers,
+            if len(history) > calls:
+                self._blocked_until[key] = now + block_duration_seconds
+                retry_after = block_duration_seconds
+                return RateLimitDecision(
+                    allowed=False,
+                    remaining=0,
+                    reset_timestamp=int(time.time() + retry_after),
+                    retry_after=retry_after,
                 )
 
-            reset_timestamp = self._compute_reset_timestamp(history, now)
+            return RateLimitDecision(
+                allowed=True,
+                remaining=remaining,
+                reset_timestamp=self._compute_reset_timestamp(history, now, window_seconds),
+            )
 
-        response = await call_next(request)
-        response.headers["X-RateLimit-Limit"] = str(self.calls)
-        response.headers["X-RateLimit-Remaining"] = str(remaining)
-        response.headers["X-RateLimit-Reset"] = str(reset_timestamp)
-        return response
-
-    def _compute_reset_timestamp(self, history: Deque[float], now: float) -> int:
+    def _compute_reset_timestamp(
+        self, history: Deque[float], now: float, window_seconds: int
+    ) -> int:
         if not history:
-            return int(time.time() + self.window_seconds)
+            return int(time.time() + window_seconds)
 
         oldest = history[0]
-        seconds_left = max(0.0, self.window_seconds - (now - oldest))
+        seconds_left = max(0.0, window_seconds - (now - oldest))
         return int(time.time() + seconds_left)
 
-    def _should_skip(self, request: Request) -> bool:
-        path = request.url.path
-        if path in self.exempt_paths:
-            return True
-        return any(path.startswith(prefix) for prefix in self.exempt_prefixes)
-
-    def _default_key(self, request: Request) -> str:
-        return get_request_client_ip(request)
-
-    def _prune_history(self, client_key: str, now: float) -> None:
+    def _prune_history(self, client_key: str, now: float, window_seconds: int) -> None:
         history = self._request_history.get(client_key)
         if history is None:
             return
 
-        cutoff = now - self.window_seconds
+        cutoff = now - window_seconds
         while history and history[0] <= cutoff:
             history.popleft()
 
@@ -149,4 +123,81 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return True
 
 
-__all__ = ["RateLimitMiddleware"]
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """A rate limiting middleware for FastAPI/Starlette.
+
+    It tracks requests by client identifier (IP address by default), enforces a
+    limit, and returns standard rate-limit headers plus a 429 response when the
+    threshold is exceeded. It can use a shared Redis backend or an in-memory
+    fallback store.
+    """
+
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        calls: int = 60,
+        window_seconds: int = 60,
+        block_duration_seconds: int = 60,
+        exempt_paths: Optional[Set[str]] = None,
+        exempt_prefixes: Optional[Tuple[str, ...]] = None,
+        key_func: Optional[Callable[[Request], str]] = None,
+        message: str = "Too many requests",
+        rate_limit_store: Optional[RateLimitStore] = None,
+    ) -> None:
+        super().__init__(app)
+        self.calls = max(1, calls)
+        self.window_seconds = max(1, window_seconds)
+        self.block_duration_seconds = max(1, block_duration_seconds)
+        self.exempt_paths = set(exempt_paths or ())
+        self.exempt_prefixes = exempt_prefixes or ()
+        self.key_func = key_func or self._default_key
+        self.message = message
+        self.rate_limit_store = rate_limit_store or MemoryRateLimitStore()
+
+    async def dispatch(self, request: Request, call_next):
+        if self._should_skip(request):
+            return await call_next(request)
+
+        client_key = self.key_func(request)
+        decision = await self.rate_limit_store.register_request(
+            key=client_key,
+            calls=self.calls,
+            window_seconds=self.window_seconds,
+            block_duration_seconds=self.block_duration_seconds,
+        )
+        if not decision.allowed:
+            headers = {
+                "Retry-After": str(decision.retry_after),
+                "X-RateLimit-Limit": str(self.calls),
+                "X-RateLimit-Remaining": "0",
+                "X-RateLimit-Reset": str(decision.reset_timestamp),
+            }
+            return JSONResponse(
+                status_code=429,
+                content={"detail": self.message, "retry_after": decision.retry_after},
+                headers=headers,
+            )
+
+        response = await call_next(request)
+        response.headers["X-RateLimit-Limit"] = str(self.calls)
+        response.headers["X-RateLimit-Remaining"] = str(decision.remaining)
+        response.headers["X-RateLimit-Reset"] = str(decision.reset_timestamp)
+        return response
+
+    def _should_skip(self, request: Request) -> bool:
+        path = request.url.path
+        if path in self.exempt_paths:
+            return True
+        return any(path.startswith(prefix) for prefix in self.exempt_prefixes)
+
+    def _default_key(self, request: Request) -> str:
+        return get_request_client_ip(request)
+
+
+__all__ = [
+    "RateLimitDecision",
+    "RateLimitStore",
+    "MemoryRateLimitStore",
+    "RateLimitMiddleware",
+]

@@ -6,6 +6,32 @@ from models.audit_models import AuditLog
 
 class AuditService:
     @staticmethod
+    def log_security_event(
+        db: Session,
+        *,
+        action: str,
+        user_id: Optional[int] = None,
+        organisation_id: Optional[int] = None,
+        resource_type: str = "auth",
+        resource_id: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None,
+    ) -> AuditLog:
+        return audit_crud.create_audit_log(
+            db,
+            user_id=user_id,
+            organisation_id=organisation_id,
+            event_type="security_event",
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            details=details,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
+
+    @staticmethod
     def log_rule_change(
         db: Session,
         *,
