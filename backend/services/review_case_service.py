@@ -92,16 +92,30 @@ def list_review_cases_service(
     transaction_id: int | None = None,
     decision_id: int | None = None,
     status: str | None = None,
+    offset: int = 0,
     limit: int = 200,
-):
-    return review_case_crud.list_review_cases(
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
+) -> tuple[list, int]:
+    review_cases = review_case_crud.list_review_cases(
         db,
         organisation_id=organisation_id,
         transaction_id=transaction_id,
         decision_id=decision_id,
         status=status,
+        offset=offset,
         limit=limit,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
+    total = review_case_crud.count_review_cases(
+        db,
+        organisation_id=organisation_id,
+        transaction_id=transaction_id,
+        decision_id=decision_id,
+        status=status,
+    )
+    return review_cases, total
 
 
 def update_review_case_service(
@@ -225,12 +239,20 @@ def reopen_review_case_service(
 def list_my_queue_service(
     db: Session,
     organisation_id: int,
+    offset: int = 0,
     limit: int = 100,
-):
+) -> tuple[list, int]:
     """List open review cases for the current organisation (my queue)."""
-    return review_case_crud.list_review_cases(
+    review_cases = review_case_crud.list_review_cases(
         db,
         organisation_id=organisation_id,
         status=ReviewCaseStatus.open,
+        offset=offset,
         limit=limit,
     )
+    total = review_case_crud.count_review_cases(
+        db,
+        organisation_id=organisation_id,
+        status=ReviewCaseStatus.open,
+    )
+    return review_cases, total

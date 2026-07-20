@@ -4,8 +4,19 @@ from sqlalchemy.orm import Session
 from auth import get_current_org_id, oauth2_scheme
 from database import get_db
 from schemas.audit_schemas import AuditContext
-from schemas.fraud_rule_schemas import FraudRuleCreate, FraudRuleOut, FraudRuleUpdate
+from schemas.fraud_rule_schemas import (
+    FraudRuleCreate,
+    FraudRuleListResponse,
+    FraudRuleOut,
+    FraudRuleUpdate,
+)
 from services import auth_service, fraud_rule_service
+from utils.pagination_utils import (
+    build_paginated_payload,
+    normalize_limit,
+    normalize_offset,
+    normalize_sort_dir,
+)
 
 
 router = APIRouter(prefix="/fraud-rules", tags=["fraud-rules"])
@@ -26,18 +37,34 @@ def get_audit_ctx(
     )
 
 
-@router.get("", response_model=list[FraudRuleOut])
+@router.get("", response_model=FraudRuleListResponse)
 def list_fraud_rules(
+    request: Request,
     enabled: bool | None = None,
+    offset: int = 0,
     limit: int = 100,
+    sort_by: str = "priority",
+    sort_dir: str = "asc",
     org_id: int = Depends(get_current_org_id),
     db: Session = Depends(get_db),
 ):
-    return fraud_rule_service.list_fraud_rules_service(
+    normalized_offset = normalize_offset(offset)
+    normalized_limit = normalize_limit(limit, default=100, maximum=200)
+    items, total = fraud_rule_service.list_fraud_rules_service(
         db,
         organisation_id=org_id,
         enabled=enabled,
-        limit=limit,
+        offset=normalized_offset,
+        limit=normalized_limit,
+        sort_by=sort_by,
+        sort_dir=normalize_sort_dir(sort_dir) if sort_by != "priority" else sort_dir,
+    )
+    return build_paginated_payload(
+        request=request,
+        items=items,
+        total=total,
+        limit=normalized_limit,
+        offset=normalized_offset,
     )
 
 

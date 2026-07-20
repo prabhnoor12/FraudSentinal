@@ -5,6 +5,7 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from schemas.api_schemas import PaginatedResponse
 
 class FraudDecision(str, Enum):
     approve = "approve"
@@ -45,3 +46,7 @@ class DecisionOut(DecisionBase):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DecisionListResponse(PaginatedResponse[DecisionOut]):
+    pass

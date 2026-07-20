@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import ConfigDict
 
-from schemas.api_schemas import ORMStrictSchema, StrictSchema
+from schemas.api_schemas import StrictSchema
 
 
 class UsageEventBase(StrictSchema):
@@ -20,7 +20,7 @@ class UsageEventCreate(UsageEventBase):
     pass
 
 
-class UsageEventOut(ORMStrictSchema):
+class UsageEventOut(UsageEventBase):
     id: int
     recorded_at: datetime
     billed_at: Optional[datetime] = None
@@ -41,7 +41,7 @@ class UsageSummaryCreate(UsageSummaryBase):
     pass
 
 
-class UsageSummaryOut(ORMStrictSchema):
+class UsageSummaryOut(UsageSummaryBase):
     id: int
     created_at: datetime
 

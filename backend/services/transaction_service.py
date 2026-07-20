@@ -122,12 +122,23 @@ def list_transactions_service(
     *,
     user_id: int | None = None,
     organisation_id: int | None = None,
+    offset: int = 0,
     limit: int = 100,
-) -> list[TransactionOut]:
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
+) -> tuple[list[TransactionOut], int]:
     transactions = transaction_crud.list_transactions(
         db,
         user_id=user_id,
         organisation_id=organisation_id,
+        offset=offset,
         limit=limit,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
-    return [serialize_transaction(transaction) for transaction in transactions]
+    total = transaction_crud.count_transactions(
+        db,
+        user_id=user_id,
+        organisation_id=organisation_id,
+    )
+    return [serialize_transaction(transaction) for transaction in transactions], total

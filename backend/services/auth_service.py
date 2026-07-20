@@ -114,6 +114,27 @@ def _build_api_key_response(api_key, *, raw_key: str | None = None) -> dict[str,
     }
 
 
+def _slice_collection(
+    items: list[dict[str, Any]] | list[Any],
+    *,
+    offset: int,
+    limit: int,
+    sort_key: str | None = None,
+    sort_dir: str = "desc",
+) -> tuple[list[Any], int]:
+    ordered = list(items)
+    if sort_key:
+        ordered.sort(
+            key=lambda item: (
+                item.get(sort_key) if isinstance(item, dict) else getattr(item, sort_key, None)
+            )
+            or "",
+            reverse=sort_dir == "desc",
+        )
+    total = len(ordered)
+    return ordered[offset : offset + limit], total
+
+
 def register_user(db: Session, payload: RegisterRequest):
     email = normalize_email(payload.email)
     if user_crud.get_user_by_email(db, email):
@@ -308,9 +329,24 @@ def create_service_account_service(
     )
 
 
-def list_service_accounts_service(db: Session, actor_user):
+def list_service_accounts_service(
+    db: Session,
+    actor_user,
+    *,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
+):
     organisation_id = None if actor_user.role == "admin" else actor_user.organisation_id
-    return auth_crud.list_service_accounts(db, organisation_id=organisation_id)
+    service_accounts = auth_crud.list_service_accounts(db, organisation_id=organisation_id)
+    return _slice_collection(
+        service_accounts,
+        offset=offset,
+        limit=limit,
+        sort_key=sort_by,
+        sort_dir=sort_dir,
+    )
 
 
 def create_service_account_api_key_service(
@@ -345,14 +381,28 @@ def create_service_account_api_key_service(
 
 
 def list_service_account_api_keys_service(
-    db: Session, actor_user, service_account_id: int
-) -> list[dict[str, Any]]:
+    db: Session,
+    actor_user,
+    service_account_id: int,
+    *,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
+) -> tuple[list[dict[str, Any]], int]:
     service_account = auth_crud.get_service_account_by_id(db, service_account_id)
     if not service_account:
         raise NotFoundError("Service account not found")
     _validate_user_can_manage_org(actor_user, service_account.organisation_id)
     api_keys = auth_crud.list_api_keys(db, service_account_id=service_account.id)
-    return [_build_api_key_response(api_key) for api_key in api_keys]
+    serialized = [_build_api_key_response(api_key) for api_key in api_keys]
+    return _slice_collection(
+        serialized,
+        offset=offset,
+        limit=limit,
+        sort_key=sort_by,
+        sort_dir=sort_dir,
+    )
 
 
 def rotate_service_account_api_key_service(
@@ -410,7 +460,15 @@ def revoke_service_account_api_key_service(
     return {"message": "API key revoked successfully"}
 
 
-def list_api_key_rotation_alerts_service(db: Session, actor_user) -> list[dict[str, Any]]:
+def list_api_key_rotation_alerts_service(
+    db: Session,
+    actor_user,
+    *,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "rotation_due_at",
+    sort_dir: str = "asc",
+) -> tuple[list[dict[str, Any]], int]:
     organisation_id = None if actor_user.role == "admin" else actor_user.organisation_id
     service_accounts = auth_crud.list_service_accounts(db, organisation_id=organisation_id)
     alerts: list[dict[str, Any]] = []
@@ -433,7 +491,13 @@ def list_api_key_rotation_alerts_service(db: Session, actor_user) -> list[dict[s
                         "expires_at": api_key.expires_at,
                     }
                 )
-    return alerts
+    return _slice_collection(
+        alerts,
+        offset=offset,
+        limit=limit,
+        sort_key=sort_by,
+        sort_dir=sort_dir,
+    )
 
 
 def authenticate_api_key(db: Session, raw_key: str):

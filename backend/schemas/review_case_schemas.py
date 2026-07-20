@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
+from schemas.api_schemas import PaginatedResponse
 
 class ReviewCaseStatus(str, Enum):
     open = "open"
@@ -102,3 +103,7 @@ class ReviewCaseOut(BaseModel):
     resolved_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ReviewCaseListResponse(PaginatedResponse[ReviewCaseOut]):
+    pass

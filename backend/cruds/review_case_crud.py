@@ -1,5 +1,6 @@
 from datetime import datetime, UTC
 
+from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session
 
 from models.review_case_models import ReviewCase
@@ -31,7 +32,10 @@ def list_review_cases(
     transaction_id: int | None = None,
     decision_id: int | None = None,
     status: str | None = None,
+    offset: int = 0,
     limit: int = 200,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
 ) -> list[ReviewCase]:
     query = db.query(ReviewCase)
     if organisation_id is not None:
@@ -42,7 +46,39 @@ def list_review_cases(
         query = query.filter(ReviewCase.decision_id == decision_id)
     if status is not None:
         query = query.filter(ReviewCase.status == status)
-    return query.order_by(ReviewCase.created_at.desc()).limit(limit).all()
+    order_column = {
+        "created_at": ReviewCase.created_at,
+        "updated_at": ReviewCase.updated_at,
+        "status": ReviewCase.status,
+        "id": ReviewCase.id,
+    }.get(sort_by, ReviewCase.created_at)
+    order_func = asc if sort_dir == "asc" else desc
+    return (
+        query.order_by(order_func(order_column), desc(ReviewCase.id))
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+
+def count_review_cases(
+    db: Session,
+    *,
+    organisation_id: int | None = None,
+    transaction_id: int | None = None,
+    decision_id: int | None = None,
+    status: str | None = None,
+) -> int:
+    query = db.query(func.count(ReviewCase.id))
+    if organisation_id is not None:
+        query = query.filter(ReviewCase.organisation_id == organisation_id)
+    if transaction_id is not None:
+        query = query.filter(ReviewCase.transaction_id == transaction_id)
+    if decision_id is not None:
+        query = query.filter(ReviewCase.decision_id == decision_id)
+    if status is not None:
+        query = query.filter(ReviewCase.status == status)
+    return query.scalar() or 0
 
 
 def update_review_case(

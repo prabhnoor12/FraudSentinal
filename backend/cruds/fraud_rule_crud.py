@@ -1,3 +1,4 @@
+from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session
 
 from models.fraud_rule_models import FraudRule
@@ -34,16 +35,43 @@ def list_fraud_rules(
     *,
     organisation_id: int | None = None,
     enabled: bool | None = None,
+    offset: int = 0,
     limit: int = 100,
+    sort_by: str = "priority",
+    sort_dir: str = "asc",
 ) -> list[FraudRule]:
     query = db.query(FraudRule)
     if organisation_id is not None:
         query = query.filter(FraudRule.organisation_id == organisation_id)
     if enabled is not None:
         query = query.filter(FraudRule.enabled == enabled)
+    order_column = {
+        "priority": FraudRule.priority,
+        "created_at": FraudRule.created_at,
+        "updated_at": FraudRule.updated_at,
+        "id": FraudRule.id,
+    }.get(sort_by, FraudRule.priority)
+    order_func = asc if sort_dir == "asc" else desc
     return (
-        query.order_by(FraudRule.priority.asc(), FraudRule.id.asc()).limit(limit).all()
+        query.order_by(order_func(order_column), asc(FraudRule.id))
+        .offset(offset)
+        .limit(limit)
+        .all()
     )
+
+
+def count_fraud_rules(
+    db: Session,
+    *,
+    organisation_id: int | None = None,
+    enabled: bool | None = None,
+) -> int:
+    query = db.query(func.count(FraudRule.id))
+    if organisation_id is not None:
+        query = query.filter(FraudRule.organisation_id == organisation_id)
+    if enabled is not None:
+        query = query.filter(FraudRule.enabled == enabled)
+    return query.scalar() or 0
 
 
 def list_effective_fraud_rules(

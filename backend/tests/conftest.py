@@ -20,6 +20,7 @@ os.environ["JWT_ISSUER"] = "FraudSentinal"
 os.environ["JWT_AUDIENCE"] = "fraudsentinel-api"
 
 from app import app
+from database import engine as app_engine
 from database import get_db
 from database import Base
 from middleware.rate_limiting_middleware import MemoryRateLimitStore
@@ -41,8 +42,10 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 @pytest.fixture(scope="session")
 def db_engine():
     Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=app_engine)
     yield engine
     Base.metadata.drop_all(bind=engine)
+    Base.metadata.drop_all(bind=app_engine)
 
 
 @pytest.fixture

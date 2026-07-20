@@ -5,7 +5,7 @@ from typing import Any
 
 from pydantic import ConfigDict, Field, field_validator
 
-from schemas.api_schemas import ORMStrictSchema, StrictSchema
+from schemas.api_schemas import PaginatedResponse, StrictSchema
 from utils.security_utils import (
     normalize_country_code,
     normalize_ip_address,
@@ -70,8 +70,12 @@ class TransactionCreate(TransactionBase):
     pass
 
 
-class TransactionOut(ORMStrictSchema):
+class TransactionOut(TransactionBase):
     id: int
     created_at: datetime
 
     model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+
+class TransactionListResponse(PaginatedResponse[TransactionOut]):
+    pass

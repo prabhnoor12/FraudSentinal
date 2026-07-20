@@ -5,7 +5,9 @@ from auth_dependencies import get_current_user
 from database import get_db
 from schemas.auth_schemas import (
     APIKeyAlertOut,
+    APIKeyAlertListResponse,
     APIKeyCreateRequest,
+    APIKeyListResponse,
     APIKeyOut,
     APIKeyRotateRequest,
     AuthUserOut,
@@ -16,12 +18,19 @@ from schemas.auth_schemas import (
     RefreshTokenRequest,
     RegisterRequest,
     ServiceAccountCreate,
+    ServiceAccountListResponse,
     ServiceAccountOut,
     TokenResponse,
 )
 from services.audit_service import AuditService
 from services import auth_service
 from utils.exception_handling_utils import AppException, UnauthorizedError
+from utils.pagination_utils import (
+    build_paginated_payload,
+    normalize_limit,
+    normalize_offset,
+    normalize_sort_dir,
+)
 from utils.security_utils import get_request_client_ip, hash_value
 
 
@@ -199,11 +208,32 @@ def create_service_account(
     return auth_service.create_service_account_service(db, current_user, payload)
 
 
-@router.get("/service-accounts", response_model=list[ServiceAccountOut])
+@router.get("/service-accounts", response_model=ServiceAccountListResponse)
 def list_service_accounts(
+    request: Request,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
     current_user=Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    return auth_service.list_service_accounts_service(db, current_user)
+    normalized_offset = normalize_offset(offset)
+    normalized_limit = normalize_limit(limit, default=100, maximum=200)
+    items, total = auth_service.list_service_accounts_service(
+        db,
+        current_user,
+        offset=normalized_offset,
+        limit=normalized_limit,
+        sort_by=sort_by,
+        sort_dir=normalize_sort_dir(sort_dir),
+    )
+    return build_paginated_payload(
+        request=request,
+        items=items,
+        total=total,
+        limit=normalized_limit,
+        offset=normalized_offset,
+    )
 
 
 @router.post(
@@ -224,15 +254,35 @@ def create_service_account_api_key(
 
 @router.get(
     "/service-accounts/{service_account_id}/keys",
-    response_model=list[APIKeyOut],
+    response_model=APIKeyListResponse,
 )
 def list_service_account_api_keys(
+    request: Request,
     service_account_id: int,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
     current_user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return auth_service.list_service_account_api_keys_service(
-        db, current_user, service_account_id
+    normalized_offset = normalize_offset(offset)
+    normalized_limit = normalize_limit(limit, default=100, maximum=200)
+    items, total = auth_service.list_service_account_api_keys_service(
+        db,
+        current_user,
+        service_account_id,
+        offset=normalized_offset,
+        limit=normalized_limit,
+        sort_by=sort_by,
+        sort_dir=normalize_sort_dir(sort_dir),
+    )
+    return build_paginated_payload(
+        request=request,
+        items=items,
+        total=total,
+        limit=normalized_limit,
+        offset=normalized_offset,
     )
 
 
@@ -264,8 +314,32 @@ def revoke_service_account_api_key(
     )
 
 
-@router.get("/service-accounts/rotation-alerts", response_model=list[APIKeyAlertOut])
+@router.get(
+    "/service-accounts/rotation-alerts",
+    response_model=APIKeyAlertListResponse,
+)
 def list_rotation_alerts(
+    request: Request,
+    offset: int = 0,
+    limit: int = 100,
+    sort_by: str = "rotation_due_at",
+    sort_dir: str = "asc",
     current_user=Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    return auth_service.list_api_key_rotation_alerts_service(db, current_user)
+    normalized_offset = normalize_offset(offset)
+    normalized_limit = normalize_limit(limit, default=100, maximum=200)
+    items, total = auth_service.list_api_key_rotation_alerts_service(
+        db,
+        current_user,
+        offset=normalized_offset,
+        limit=normalized_limit,
+        sort_by=sort_by,
+        sort_dir=normalize_sort_dir(sort_dir) if sort_by != "rotation_due_at" else sort_dir,
+    )
+    return build_paginated_payload(
+        request=request,
+        items=items,
+        total=total,
+        limit=normalized_limit,
+        offset=normalized_offset,
+    )

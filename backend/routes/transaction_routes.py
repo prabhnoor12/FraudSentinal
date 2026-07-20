@@ -8,8 +8,18 @@ from auth_dependencies import (
 )
 from database import get_db
 from schemas.audit_schemas import AuditContext
-from schemas.transaction_schemas import TransactionCreate, TransactionOut
+from schemas.transaction_schemas import (
+    TransactionCreate,
+    TransactionListResponse,
+    TransactionOut,
+)
 from services import audit_service, transaction_service
+from utils.pagination_utils import (
+    build_paginated_payload,
+    normalize_limit,
+    normalize_offset,
+    normalize_sort_dir,
+)
 
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
@@ -28,19 +38,33 @@ def get_audit_ctx(
     )
 
 
-@router.get("", response_model=list[TransactionOut])
+@router.get("", response_model=TransactionListResponse)
 def list_transactions(
+    request: Request,
     user_id: int | None = None,
+    offset: int = 0,
     limit: int = 100,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
     principal=Depends(require_scopes("transactions:read")),
     org_id: int = Depends(get_current_org_id),
     db: Session = Depends(get_db),
 ):
-    return transaction_service.list_transactions_service(
+    items, total = transaction_service.list_transactions_service(
         db,
         user_id=user_id,
         organisation_id=org_id,
-        limit=limit,
+        offset=normalize_offset(offset),
+        limit=normalize_limit(limit, default=100, maximum=200),
+        sort_by=sort_by,
+        sort_dir=normalize_sort_dir(sort_dir),
+    )
+    return build_paginated_payload(
+        request=request,
+        items=items,
+        total=total,
+        limit=normalize_limit(limit, default=100, maximum=200),
+        offset=normalize_offset(offset),
     )
 
 

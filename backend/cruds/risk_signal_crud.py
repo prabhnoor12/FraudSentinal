@@ -1,3 +1,4 @@
+from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session
 
 from models.risk_signal_models import RiskSignal
@@ -22,7 +23,10 @@ def list_risk_signals(
     organisation_id: int | None = None,
     transaction_id: int | None = None,
     decision_id: int | None = None,
+    offset: int = 0,
     limit: int = 200,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
 ) -> list[RiskSignal]:
     query = db.query(RiskSignal)
     if organisation_id is not None:
@@ -31,4 +35,32 @@ def list_risk_signals(
         query = query.filter(RiskSignal.transaction_id == transaction_id)
     if decision_id is not None:
         query = query.filter(RiskSignal.decision_id == decision_id)
-    return query.order_by(RiskSignal.created_at.desc()).limit(limit).all()
+    order_column = {
+        "created_at": RiskSignal.created_at,
+        "weight": RiskSignal.weight,
+        "id": RiskSignal.id,
+    }.get(sort_by, RiskSignal.created_at)
+    order_func = asc if sort_dir == "asc" else desc
+    return (
+        query.order_by(order_func(order_column), desc(RiskSignal.id))
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+
+def count_risk_signals(
+    db: Session,
+    *,
+    organisation_id: int | None = None,
+    transaction_id: int | None = None,
+    decision_id: int | None = None,
+) -> int:
+    query = db.query(func.count(RiskSignal.id))
+    if organisation_id is not None:
+        query = query.filter(RiskSignal.organisation_id == organisation_id)
+    if transaction_id is not None:
+        query = query.filter(RiskSignal.transaction_id == transaction_id)
+    if decision_id is not None:
+        query = query.filter(RiskSignal.decision_id == decision_id)
+    return query.scalar() or 0

@@ -497,16 +497,28 @@ def list_fraud_rules_service(
     *,
     organisation_id: int | None = None,
     enabled: bool | None = None,
+    offset: int = 0,
     limit: int = 100,
-):
+    sort_by: str = "priority",
+    sort_dir: str = "asc",
+) -> tuple[list, int]:
     if organisation_id is not None:
         _ensure_organisation_exists(db, organisation_id)
-    return fraud_rule_crud.list_fraud_rules(
+    rules = fraud_rule_crud.list_fraud_rules(
         db,
         organisation_id=organisation_id,
         enabled=enabled,
+        offset=offset,
         limit=limit,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
+    total = fraud_rule_crud.count_fraud_rules(
+        db,
+        organisation_id=organisation_id,
+        enabled=enabled,
+    )
+    return rules, total
 
 
 def get_fraud_rule_service(

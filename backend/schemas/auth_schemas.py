@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import ConfigDict, EmailStr
 
-from schemas.api_schemas import ORMStrictSchema, StrictSchema
+from schemas.api_schemas import ORMStrictSchema, PaginatedResponse, StrictSchema
 
 
 class RegisterRequest(StrictSchema):
@@ -114,3 +114,15 @@ class APIKeyAlertOut(StrictSchema):
     api_key_name: str
     rotation_due_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
+
+
+class ServiceAccountListResponse(PaginatedResponse[ServiceAccountOut]):
+    pass
+
+
+class APIKeyListResponse(PaginatedResponse[APIKeyOut]):
+    pass
+
+
+class APIKeyAlertListResponse(PaginatedResponse[APIKeyAlertOut]):
+    pass

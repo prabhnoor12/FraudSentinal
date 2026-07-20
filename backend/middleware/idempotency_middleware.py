@@ -159,8 +159,11 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
 
         api_key = request.headers.get("X-API-Key")
         if api_key:
-            return auth_service.get_authenticated_principal(
-                db, bearer_token=None, api_key=api_key
+            return AuthenticatedPrincipal(
+                principal_type="api_key",
+                subject_id=fingerprint_token(api_key),
+                organisation_id=None,
+                scopes=set(),
             )
 
         return None

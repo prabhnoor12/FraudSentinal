@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import ConfigDict
 
-from schemas.api_schemas import ORMStrictSchema, StrictSchema
+from schemas.api_schemas import StrictSchema
 
 
 class BillingPlanBase(StrictSchema):
@@ -19,7 +19,7 @@ class BillingPlanCreate(BillingPlanBase):
     pass
 
 
-class BillingPlanOut(ORMStrictSchema):
+class BillingPlanOut(BillingPlanBase):
     id: int
     created_at: datetime
     updated_at: datetime
@@ -44,7 +44,7 @@ class BillingRecordCreate(BillingRecordBase):
     pass
 
 
-class BillingRecordOut(ORMStrictSchema):
+class BillingRecordOut(BillingRecordBase):
     id: int
     created_at: datetime
     billed_at: Optional[datetime] = None

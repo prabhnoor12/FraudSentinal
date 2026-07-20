@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import distinct, func
+from sqlalchemy import asc, desc, distinct, func
 from sqlalchemy.orm import Session
 
 from models.transaction_models import Transaction
@@ -26,14 +26,42 @@ def list_transactions(
     *,
     user_id: int | None = None,
     organisation_id: int | None = None,
+    offset: int = 0,
     limit: int = 100,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
 ) -> list[Transaction]:
     query = db.query(Transaction)
     if user_id is not None:
         query = query.filter(Transaction.user_id == user_id)
     if organisation_id is not None:
         query = query.filter(Transaction.organisation_id == organisation_id)
-    return query.order_by(Transaction.created_at.desc()).limit(limit).all()
+    order_column = {
+        "created_at": Transaction.created_at,
+        "amount": Transaction.amount,
+        "id": Transaction.id,
+    }.get(sort_by, Transaction.created_at)
+    order_func = asc if sort_dir == "asc" else desc
+    return (
+        query.order_by(order_func(order_column), desc(Transaction.id))
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+
+def count_transactions(
+    db: Session,
+    *,
+    user_id: int | None = None,
+    organisation_id: int | None = None,
+) -> int:
+    query = db.query(func.count(Transaction.id))
+    if user_id is not None:
+        query = query.filter(Transaction.user_id == user_id)
+    if organisation_id is not None:
+        query = query.filter(Transaction.organisation_id == organisation_id)
+    return query.scalar() or 0
 
 
 def count_transactions_since(

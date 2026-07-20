@@ -151,3 +151,96 @@ def test_openapi_and_docs_expose_v1_api(client):
     paths = openapi.json()["paths"]
     assert "/api/v1/auth/login" in paths
     assert "/api/v1/transactions" in paths
+
+
+def test_v1_transactions_list_uses_paginated_contract(client):
+    token, me = _register_and_login(
+        client,
+        email="paging@example.com",
+        password="StrongPass123!",
+        organisation_name="Paging Org",
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+
+    for index, amount in enumerate((10.0, 30.0, 20.0), start=1):
+        response = client.post(
+            "/api/v1/transactions",
+            headers={**headers, "Idempotency-Key": f"paging-txn-{index}"},
+            json={
+                "user_id": me["id"],
+                "organisation_id": me["organisation_id"],
+                "amount": amount,
+                "currency": "USD",
+                "payment_method": "card",
+                "channel": "api",
+                "customer_id": f"paging-customer-{index}",
+                "metadata": {},
+            },
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+
+    list_response = client.get(
+        "/api/v1/transactions?limit=2&offset=1&sort_by=amount&sort_dir=asc",
+        headers=headers,
+    )
+    assert list_response.status_code == status.HTTP_200_OK
+
+    body = list_response.json()
+    assert len(body["items"]) == 2
+    assert body["pagination"]["total"] == 3
+    assert body["pagination"]["limit"] == 2
+    assert body["pagination"]["offset"] == 1
+    assert body["pagination"]["previous"].endswith("limit=2&offset=0&sort_by=amount&sort_dir=asc")
+    assert body["items"][0]["amount"] == 20.0
+    assert body["items"][1]["amount"] == 30.0
+
+
+def test_v1_service_account_lists_use_paginated_contract(client):
+    token, me = _register_and_login(
+        client,
+        email="svc-list@example.com",
+        password="StrongPass123!",
+        organisation_name="Svc List Org",
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+
+    created_ids = []
+    for name in ("worker-a", "worker-b"):
+        response = client.post(
+            "/api/v1/auth/service-accounts",
+            headers=headers,
+            json={
+                "organisation_id": me["organisation_id"],
+                "name": name,
+                "description": f"{name} description",
+                "scopes": ["transactions:read"],
+            },
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        created_ids.append(response.json()["id"])
+
+    list_response = client.get(
+        "/api/v1/auth/service-accounts?limit=1&offset=0&sort_by=name&sort_dir=asc",
+        headers=headers,
+    )
+    assert list_response.status_code == status.HTTP_200_OK
+    body = list_response.json()
+    assert body["pagination"]["total"] == 2
+    assert len(body["items"]) == 1
+    assert body["items"][0]["name"] == "worker-a"
+
+    key_response = client.post(
+        f"/api/v1/auth/service-accounts/{created_ids[0]}/keys",
+        headers=headers,
+        json={"name": "primary", "scopes": ["transactions:read"]},
+    )
+    assert key_response.status_code == status.HTTP_201_CREATED
+
+    keys_list = client.get(
+        f"/api/v1/auth/service-accounts/{created_ids[0]}/keys?limit=10&offset=0",
+        headers=headers,
+    )
+    assert keys_list.status_code == status.HTTP_200_OK
+    keys_body = keys_list.json()
+    assert keys_body["pagination"]["total"] == 1
+    assert keys_body["items"][0]["name"] == "primary"

@@ -5,12 +5,19 @@ from auth import get_current_org_id, oauth2_scheme
 from database import get_db
 from schemas.audit_schemas import AuditContext
 from schemas.review_case_schemas import (
+    ReviewCaseListResponse,
     ReviewCaseOut,
     ReviewCaseReopen,
     ReviewCaseResolve,
     ReviewCaseUpdate,
 )
 from services import auth_service, review_case_service
+from utils.pagination_utils import (
+    build_paginated_payload,
+    normalize_limit,
+    normalize_offset,
+    normalize_sort_dir,
+)
 
 router = APIRouter(prefix="/review-cases", tags=["review-cases"])
 
@@ -30,22 +37,38 @@ def get_audit_ctx(
     )
 
 
-@router.get("", response_model=list[ReviewCaseOut])
+@router.get("", response_model=ReviewCaseListResponse)
 def list_review_cases(
+    request: Request,
     transaction_id: int | None = None,
     decision_id: int | None = None,
     status: str | None = None,
+    offset: int = 0,
     limit: int = 200,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
     org_id: int = Depends(get_current_org_id),
     db: Session = Depends(get_db),
 ):
-    return review_case_service.list_review_cases_service(
+    normalized_offset = normalize_offset(offset)
+    normalized_limit = normalize_limit(limit, default=100, maximum=200)
+    items, total = review_case_service.list_review_cases_service(
         db,
         organisation_id=org_id,
         transaction_id=transaction_id,
         decision_id=decision_id,
         status=status,
-        limit=limit,
+        offset=normalized_offset,
+        limit=normalized_limit,
+        sort_by=sort_by,
+        sort_dir=normalize_sort_dir(sort_dir),
+    )
+    return build_paginated_payload(
+        request=request,
+        items=items,
+        total=total,
+        limit=normalized_limit,
+        offset=normalized_offset,
     )
 
 
@@ -88,15 +111,29 @@ def update_review_case(
     )
 
 
-@router.get("/queue/my", response_model=list[ReviewCaseOut])
+@router.get("/queue/my", response_model=ReviewCaseListResponse)
 def list_my_queue(
+    request: Request,
+    offset: int = 0,
     limit: int = 100,
     org_id: int = Depends(get_current_org_id),
     db: Session = Depends(get_db),
 ):
     """List open review cases for the current organisation (my queue)."""
-    return review_case_service.list_my_queue_service(
-        db, organisation_id=org_id, limit=limit
+    normalized_offset = normalize_offset(offset)
+    normalized_limit = normalize_limit(limit, default=100, maximum=200)
+    items, total = review_case_service.list_my_queue_service(
+        db,
+        organisation_id=org_id,
+        offset=normalized_offset,
+        limit=normalized_limit,
+    )
+    return build_paginated_payload(
+        request=request,
+        items=items,
+        total=total,
+        limit=normalized_limit,
+        offset=normalized_offset,
     )
 
 

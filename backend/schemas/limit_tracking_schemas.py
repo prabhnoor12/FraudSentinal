@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import ConfigDict
 
-from schemas.api_schemas import ORMStrictSchema, StrictSchema
+from schemas.api_schemas import StrictSchema
 
 
 class UsageLimitBase(StrictSchema):
@@ -19,7 +19,7 @@ class UsageLimitCreate(UsageLimitBase):
     pass
 
 
-class UsageLimitOut(ORMStrictSchema):
+class UsageLimitOut(UsageLimitBase):
     id: int
     created_at: datetime
     updated_at: datetime
@@ -38,7 +38,7 @@ class LimitUsageRecordCreate(LimitUsageRecordBase):
     pass
 
 
-class LimitUsageRecordOut(ORMStrictSchema):
+class LimitUsageRecordOut(LimitUsageRecordBase):
     id: int
     updated_at: datetime
 

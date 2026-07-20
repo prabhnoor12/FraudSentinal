@@ -46,12 +46,25 @@ def list_risk_signals_service(
     organisation_id: int | None = None,
     transaction_id: int | None = None,
     decision_id: int | None = None,
+    offset: int = 0,
     limit: int = 200,
-):
-    return risk_signal_crud.list_risk_signals(
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
+) -> tuple[list, int]:
+    signals = risk_signal_crud.list_risk_signals(
         db,
         organisation_id=organisation_id,
         transaction_id=transaction_id,
         decision_id=decision_id,
+        offset=offset,
         limit=limit,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
+    total = risk_signal_crud.count_risk_signals(
+        db,
+        organisation_id=organisation_id,
+        transaction_id=transaction_id,
+        decision_id=decision_id,
+    )
+    return signals, total

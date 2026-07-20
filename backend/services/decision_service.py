@@ -50,13 +50,25 @@ def list_decisions_service(
     user_id: int | None = None,
     organisation_id: int | None = None,
     transaction_id: int | None = None,
+    offset: int = 0,
     limit: int = 100,
-) -> list[DecisionOut]:
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
+) -> tuple[list[DecisionOut], int]:
     decisions = decision_crud.list_decisions(
         db,
         user_id=user_id,
         organisation_id=organisation_id,
         transaction_id=transaction_id,
+        offset=offset,
         limit=limit,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
-    return [serialize_decision(decision) for decision in decisions]
+    total = decision_crud.count_decisions(
+        db,
+        user_id=user_id,
+        organisation_id=organisation_id,
+        transaction_id=transaction_id,
+    )
+    return [serialize_decision(decision) for decision in decisions], total
