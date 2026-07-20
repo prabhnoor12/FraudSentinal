@@ -5,12 +5,17 @@ import uuid
 
 import pyotp
 from fastapi import status
+from pydantic import ValidationError
+from starlette.applications import Starlette
 
-from auth import hash_password
+from auth import create_access_token, decode_access_token, hash_password
+from middleware.rate_limiting_middleware import RateLimitMiddleware, RateLimitOverride
 from models.audit_models import AuditLog
 from models.auth_models import PasswordResetToken, RefreshToken, TokenBlacklist
 from models.user_models import User
+from schemas.transaction_schemas import TransactionCreate
 from services.mfa_service import MFAService, get_mfa_cipher
+from redis import RedisClient, get_redis_url, normalize_redis_url
 from utils.security_utils import (
     fingerprint_token,
     get_request_client_ip,
@@ -151,6 +156,97 @@ def test_validate_production_hardening_requires_runtime_config(monkeypatch):
 
     monkeypatch.setenv("TRUSTED_PROXY_NETWORKS", "10.0.0.0/24")
     validate_production_hardening()
+
+
+def test_normalize_redis_url_accepts_cli_style_value():
+    raw = (
+        "redis-cli -u "
+        "redis://default:secret@example.redis.cloud:14215"
+    )
+    assert normalize_redis_url(raw) == "redis://default:secret@example.redis.cloud:14215"
+
+
+def test_get_redis_url_accepts_legacy_env_name(monkeypatch):
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.setenv(
+        "Redis_URL",
+        "redis-cli -u redis://default:secret@example.redis.cloud:14215",
+    )
+    assert get_redis_url() == "redis://default:secret@example.redis.cloud:14215"
+
+
+def test_redis_client_parses_acl_credentials():
+    client = RedisClient("redis://default:secret@example.redis.cloud:14215/0")
+    assert client.username == "default"
+    assert client.password == "secret"
+    assert client.host == "example.redis.cloud"
+    assert client.port == 14215
+
+
+def test_access_token_contains_hardened_claims():
+    token = create_access_token("123", data={"org_id": 7})
+    claims = decode_access_token(token)
+
+    assert claims["sub"] == "123"
+    assert claims["org_id"] == 7
+    assert claims["iss"] == "FraudSentinal"
+    assert claims["aud"] == "fraudsentinel-api"
+    assert "jti" in claims
+    assert "nbf" in claims
+
+
+def test_transaction_schema_normalizes_and_validates_security_sensitive_fields():
+    payload = TransactionCreate(
+        user_id=1,
+        organisation_id=1,
+        amount=10.5,
+        currency="usd",
+        payment_method="card",
+        channel="api",
+        billing_country="us",
+        shipping_country="gb",
+        ip_address="8.8.8.8",
+    )
+
+    assert payload.currency == "USD"
+    assert payload.billing_country == "US"
+    assert payload.shipping_country == "GB"
+    assert payload.ip_address == "8.8.8.8"
+
+    try:
+        TransactionCreate(
+            user_id=1,
+            organisation_id=1,
+            amount=10.5,
+            currency="usd",
+            payment_method="card",
+            channel="api",
+            ip_address="999.999.999.999",
+        )
+        assert False, "Expected invalid IP address to fail validation"
+    except ValidationError:
+        pass
+
+
+def test_rate_limit_middleware_uses_endpoint_specific_overrides():
+    middleware = RateLimitMiddleware(
+        Starlette(),
+        calls=120,
+        window_seconds=60,
+        endpoint_overrides=(
+            RateLimitOverride(
+                path="/check-fraud",
+                calls=30,
+                window_seconds=60,
+                block_duration_seconds=180,
+            ),
+        ),
+    )
+    request = SimpleNamespace(url=SimpleNamespace(path="/check-fraud"))
+
+    override = middleware._resolve_limit_config(request)
+    assert override.calls == 30
+    assert override.block_duration_seconds == 180
 
 
 def test_auth_security_events_are_audited(client, db):

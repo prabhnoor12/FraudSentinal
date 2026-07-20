@@ -21,6 +21,15 @@ class RateLimitDecision:
     retry_after: int = 0
 
 
+@dataclass(frozen=True)
+class RateLimitOverride:
+    path: str
+    calls: int
+    window_seconds: int
+    block_duration_seconds: int
+    match_mode: str = "exact"
+
+
 class RateLimitStore(Protocol):
     async def register_request(
         self,
@@ -39,6 +48,11 @@ class MemoryRateLimitStore:
         self._request_history: DefaultDict[str, Deque[float]] = defaultdict(deque)
         self._blocked_until: DefaultDict[str, float] = defaultdict(float)
         self._lock = Lock()
+
+    def reset(self) -> None:
+        with self._lock:
+            self._request_history.clear()
+            self._blocked_until.clear()
 
     async def register_request(
         self,
@@ -144,6 +158,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         key_func: Optional[Callable[[Request], str]] = None,
         message: str = "Too many requests",
         rate_limit_store: Optional[RateLimitStore] = None,
+        endpoint_overrides: Optional[tuple[RateLimitOverride, ...]] = None,
     ) -> None:
         super().__init__(app)
         self.calls = max(1, calls)
@@ -154,22 +169,24 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.key_func = key_func or self._default_key
         self.message = message
         self.rate_limit_store = rate_limit_store or MemoryRateLimitStore()
+        self.endpoint_overrides = endpoint_overrides or ()
 
     async def dispatch(self, request: Request, call_next):
         if self._should_skip(request):
             return await call_next(request)
 
+        limit_config = self._resolve_limit_config(request)
         client_key = self.key_func(request)
         decision = await self.rate_limit_store.register_request(
             key=client_key,
-            calls=self.calls,
-            window_seconds=self.window_seconds,
-            block_duration_seconds=self.block_duration_seconds,
+            calls=limit_config.calls,
+            window_seconds=limit_config.window_seconds,
+            block_duration_seconds=limit_config.block_duration_seconds,
         )
         if not decision.allowed:
             headers = {
                 "Retry-After": str(decision.retry_after),
-                "X-RateLimit-Limit": str(self.calls),
+                "X-RateLimit-Limit": str(limit_config.calls),
                 "X-RateLimit-Remaining": "0",
                 "X-RateLimit-Reset": str(decision.reset_timestamp),
             }
@@ -180,7 +197,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             )
 
         response = await call_next(request)
-        response.headers["X-RateLimit-Limit"] = str(self.calls)
+        response.headers["X-RateLimit-Limit"] = str(limit_config.calls)
         response.headers["X-RateLimit-Remaining"] = str(decision.remaining)
         response.headers["X-RateLimit-Reset"] = str(decision.reset_timestamp)
         return response
@@ -194,9 +211,25 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     def _default_key(self, request: Request) -> str:
         return get_request_client_ip(request)
 
+    def _resolve_limit_config(self, request: Request) -> RateLimitOverride:
+        path = request.url.path
+        for override in self.endpoint_overrides:
+            if override.match_mode == "prefix" and path.startswith(override.path):
+                return override
+            if override.match_mode == "exact" and path == override.path:
+                return override
+
+        return RateLimitOverride(
+            path="*",
+            calls=self.calls,
+            window_seconds=self.window_seconds,
+            block_duration_seconds=self.block_duration_seconds,
+        )
+
 
 __all__ = [
     "RateLimitDecision",
+    "RateLimitOverride",
     "RateLimitStore",
     "MemoryRateLimitStore",
     "RateLimitMiddleware",

@@ -11,7 +11,7 @@ from auth import SECRET_KEY
 from database import SessionLocal
 from middleware.ip_limiting_middleware import IPLimitMiddleware
 from middleware.logging_middleware import LoggingMiddleware
-from middleware.rate_limiting_middleware import RateLimitMiddleware
+from middleware.rate_limiting_middleware import RateLimitMiddleware, RateLimitOverride
 from middleware.security_headers_middleware import SecurityHeadersMiddleware
 from redis import build_rate_limit_store
 from routes.auth_routes import router as auth_router
@@ -79,20 +79,59 @@ app = FastAPI(title="FraudSentinal Backend", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(LoggingMiddleware, exclude_paths={"/health"})
-app.add_middleware(
-    RateLimitMiddleware,
-    calls=120,
-    window_seconds=60,
-    exempt_paths={"/health"},
-    rate_limit_store=build_rate_limit_store("fraudsentinel:rate_limit"),
-)
-app.add_middleware(
-    IPLimitMiddleware,
-    calls=300,
-    window_seconds=60,
-    exempt_paths={"/health"},
-    rate_limit_store=build_rate_limit_store("fraudsentinel:ip_limit"),
-)
+if not is_testing():
+    app.add_middleware(
+        RateLimitMiddleware,
+        calls=120,
+        window_seconds=60,
+        exempt_paths={"/health"},
+        rate_limit_store=build_rate_limit_store("fraudsentinel:rate_limit"),
+        endpoint_overrides=(
+            RateLimitOverride(
+                path="/auth/login",
+                calls=10,
+                window_seconds=60,
+                block_duration_seconds=300,
+            ),
+            RateLimitOverride(
+                path="/auth/password-reset/request",
+                calls=5,
+                window_seconds=300,
+                block_duration_seconds=600,
+            ),
+            RateLimitOverride(
+                path="/auth/password-reset/confirm",
+                calls=8,
+                window_seconds=300,
+                block_duration_seconds=600,
+            ),
+            RateLimitOverride(
+                path="/check-fraud",
+                calls=30,
+                window_seconds=60,
+                block_duration_seconds=180,
+            ),
+            RateLimitOverride(
+                path="/enrichment/seed",
+                calls=3,
+                window_seconds=300,
+                block_duration_seconds=900,
+            ),
+            RateLimitOverride(
+                path="/enrichment/signals/test",
+                calls=20,
+                window_seconds=60,
+                block_duration_seconds=180,
+            ),
+        ),
+    )
+    app.add_middleware(
+        IPLimitMiddleware,
+        calls=300,
+        window_seconds=60,
+        exempt_paths={"/health"},
+        rate_limit_store=build_rate_limit_store("fraudsentinel:ip_limit"),
+    )
 
 app.add_exception_handler(AppException, handle_app_exception)
 app.add_exception_handler(HTTPException, handle_http_exception)

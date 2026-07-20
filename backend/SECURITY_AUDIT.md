@@ -12,7 +12,7 @@
 
 The previous version of this document overstated the current posture and included stale machine-local evidence links. This report reflects the backend after the latest security hardening changes.
 
-The backend now has stronger protections for password reset handling, token persistence, MFA secret storage, proxy-aware IP resolution, response security headers, shared rate limiting, and auth event audit coverage. The most serious application-level issues identified in the earlier review have been addressed in code. The remaining work is primarily operational validation and defense-in-depth.
+The backend now has stronger protections for password reset handling, token persistence, MFA secret storage, proxy-aware IP resolution, response security headers, shared rate limiting, auth event audit coverage, stricter JWT claim validation, and tighter IP/card input validation. The most serious application-level issues identified in the earlier review have been addressed in code. The remaining work is primarily operational validation and defense-in-depth.
 
 ---
 
@@ -112,6 +112,32 @@ The auth and MFA routes now record audit events for password reset requests, pas
 
 ---
 
+### ✅ JWT Claim Validation Hardened
+
+**Status: FIXED**
+
+Access tokens now include and validate additional security claims including `iss`, `aud`, `jti`, and `nbf`, with bounded clock skew handling during verification.
+
+**Evidence:**
+- [auth.py](file:///d:/Trae_projects/FraudSentinal/backend/auth.py)
+- [security_hardening_test.py](file:///d:/Trae_projects/FraudSentinal/backend/tests/security_hardening_test.py)
+
+---
+
+### ✅ Input Validation Tightened For IP And Card Inputs
+
+**Status: FIXED**
+
+Transaction and enrichment flows now normalize and validate IP addresses, country codes, BIN lengths, and full card numbers using shared validation helpers. Full card numbers also receive Luhn validation before lookup paths accept them.
+
+**Evidence:**
+- [security_utils.py](file:///d:/Trae_projects/FraudSentinal/backend/utils/security_utils.py)
+- [transaction_schemas.py](file:///d:/Trae_projects/FraudSentinal/backend/schemas/transaction_schemas.py)
+- [enrichment_routes.py](file:///d:/Trae_projects/FraudSentinal/backend/routes/enrichment_routes.py)
+- [security_hardening_test.py](file:///d:/Trae_projects/FraudSentinal/backend/tests/security_hardening_test.py)
+
+---
+
 ## Current Findings By Category
 
 ### ✅ Authentication & Authorization
@@ -208,7 +234,7 @@ The backend still returns generic unexpected-error responses and keeps exception
 |---------|----------|--------|---------|
 | Redis is now a production dependency for shared throttling | Medium | ⚠️ Monitor | Production startup requires `REDIS_URL`; operations should provide availability monitoring and failover planning |
 | Trusted proxy configuration still depends on correct network definitions | Medium | ⚠️ Monitor | Startup now requires `TRUSTED_PROXY_NETWORKS` in production, but the values still need to match real ingress networks |
-| JWT claim hardening can still be expanded | Low | ⚠️ Future improvement | Consider stronger `jti`, issuer, and audience validation if the auth system will serve multiple clients or environments |
+| Rate-limit thresholds may still need production tuning | Low | ⚠️ Monitor | Sensitive routes now have tighter defaults, but traffic patterns should be reviewed after deployment |
 
 **Evidence:**
 - [app.py:L48-L95](file:///d:/Trae_projects/FraudSentinal/backend/app.py#L48-L95)
@@ -225,7 +251,7 @@ The backend still returns generic unexpected-error responses and keeps exception
 | High | 0 | ✅ Earlier high-risk issues have been remediated |
 | Medium | 2 | ⚠️ Operational monitoring still recommended |
 | Low | 1 | ⚠️ Optional future hardening remains |
-| Informational | 7 | ℹ️ Security improvements verified |
+| Informational | 9 | ℹ️ Security improvements verified |
 
 ---
 
@@ -240,19 +266,19 @@ The backend still returns generic unexpected-error responses and keeps exception
 ### Medium Priority
 
 1. Review rate-limit thresholds per endpoint, especially expensive enrichment or fraud-check paths
-2. Consider stronger token lifecycle metadata such as `jti`, issuer, and audience validation if multiple clients or environments will share the auth system
-3. Periodically review audit log coverage as new auth features are added
+2. Periodically review audit log coverage as new auth features are added
+3. Validate production proxy CIDRs and Redis behavior in staging before rollout
 
 ### Low Priority
 
-1. Add additional input validation where business rules benefit from it, such as IP normalization and card validation logic where applicable
-2. Keep this document synchronized with code changes so the audit status does not drift again
+1. Keep this document synchronized with code changes so the audit status does not drift again
+2. Expand business-specific validation rules further if fraud operations require stricter country, issuer, or BIN policies
 
 ---
 
 ## Conclusion
 
-The backend security posture is materially better than the earlier audit reflected. The previously significant weaknesses around reset-token exposure, plaintext token persistence, MFA secret storage, spoofable forwarded-IP trust, missing security headers, process-local throttling, and incomplete auth event auditing have been addressed in code.
+The backend security posture is materially better than the earlier audit reflected. The previously significant weaknesses around reset-token exposure, plaintext token persistence, MFA secret storage, spoofable forwarded-IP trust, missing security headers, process-local throttling, incomplete auth event auditing, weak JWT claim validation, and loose IP/card validation have been addressed in code.
 
 **Overall Rating: SECURE WITH PRODUCTION GUARDRAILS**
 

@@ -160,6 +160,66 @@ def validate_email(email: str) -> bool:
     return bool(EMAIL_REGEX.fullmatch(normalized))
 
 
+def validate_ip_address(value: str) -> bool:
+    """Return True when the value is a valid IPv4 or IPv6 address."""
+    if not isinstance(value, str) or not value.strip():
+        return False
+    try:
+        ip_address(value.strip())
+        return True
+    except ValueError:
+        return False
+
+
+def normalize_ip_address(value: str) -> str:
+    """Normalize an IP address to canonical string form."""
+    if not validate_ip_address(value):
+        raise ValueError("Invalid IP address")
+    return str(ip_address(value.strip()))
+
+
+def normalize_country_code(value: Optional[str]) -> Optional[str]:
+    """Normalize ISO-style country codes to uppercase two-letter values."""
+    if value is None:
+        return None
+    normalized = sanitize_input(value, max_length=2).upper()
+    if len(normalized) != 2 or not normalized.isalpha():
+        raise ValueError("Country code must be a 2-letter ISO code")
+    return normalized
+
+
+def normalize_card_number(value: Optional[str]) -> Optional[str]:
+    """Strip formatting from card numbers and validate basic length."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("Card number must be a string")
+    digits = "".join(char for char in value if char.isdigit())
+    if not digits:
+        raise ValueError("Card number must contain digits")
+    if len(digits) < 6 or len(digits) > 19:
+        raise ValueError("Card number must be between 6 and 19 digits")
+    return digits
+
+
+def passes_luhn_check(card_number: str) -> bool:
+    """Return True when the card number passes the Luhn checksum."""
+    normalized = normalize_card_number(card_number)
+    if normalized is None or len(normalized) < 12:
+        return False
+
+    total = 0
+    reverse_digits = normalized[::-1]
+    for index, digit_char in enumerate(reverse_digits):
+        digit = int(digit_char)
+        if index % 2 == 1:
+            digit *= 2
+            if digit > 9:
+                digit -= 9
+        total += digit
+    return total % 10 == 0
+
+
 def normalize_email(email: str) -> str:
     """Normalize an email address to lowercase and validate it."""
     if not validate_email(email):
@@ -302,7 +362,9 @@ def validate_production_hardening() -> None:
     if not is_production_environment():
         return
 
-    if not os.getenv("REDIS_URL"):
+    from redis import get_redis_url
+
+    if not get_redis_url():
         raise ValueError("REDIS_URL must be configured in production")
 
     if not get_trusted_proxy_networks():
@@ -360,6 +422,11 @@ __all__ = [
     "is_strong_password",
     "derive_fernet_key",
     "validate_email",
+    "validate_ip_address",
+    "normalize_ip_address",
+    "normalize_country_code",
+    "normalize_card_number",
+    "passes_luhn_check",
     "normalize_email",
     "sanitize_input",
     "mask_sensitive_data",

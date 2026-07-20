@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from asyncio import AbstractEventLoop
 from threading import Lock
 import time
 from urllib.parse import urlparse
@@ -16,17 +17,19 @@ class RedisClient:
     """Minimal async Redis client for the commands used by backend middleware."""
 
     def __init__(self, redis_url: str) -> None:
-        parsed = urlparse(redis_url)
+        parsed = urlparse(normalize_redis_url(redis_url))
         if parsed.scheme not in {"redis", "rediss"}:
             raise ValueError("REDIS_URL must start with redis:// or rediss://")
 
         self.host = parsed.hostname or "localhost"
         self.port = parsed.port or 6379
+        self.username = parsed.username
         self.password = parsed.password
         self.db = int((parsed.path or "/0").lstrip("/") or "0")
         self.use_ssl = parsed.scheme == "rediss"
         self._reader = None
         self._writer = None
+        self._connection_loop: AbstractEventLoop | None = None
         self._lock = asyncio.Lock()
 
     async def ttl(self, key: str) -> int:
@@ -62,17 +65,26 @@ class RedisClient:
                 raise
 
     async def _ensure_connection(self) -> None:
+        current_loop = asyncio.get_running_loop()
         if self._writer is not None and not self._writer.is_closing():
-            return
+            if self._connection_loop is current_loop and not current_loop.is_closed():
+                return
+            await self._close_connection()
 
         self._reader, self._writer = await asyncio.open_connection(
             self.host,
             self.port,
             ssl=self.use_ssl,
         )
+        self._connection_loop = current_loop
 
-        if self.password:
-            auth_response = await self._execute_without_lock("AUTH", self.password)
+        if self.username or self.password:
+            if self.username:
+                auth_response = await self._execute_without_lock(
+                    "AUTH", self.username, self.password or ""
+                )
+            else:
+                auth_response = await self._execute_without_lock("AUTH", self.password or "")
             if auth_response != "OK":
                 raise ConnectionError("Redis AUTH failed")
 
@@ -89,14 +101,21 @@ class RedisClient:
         return await self._read_response(self._reader)
 
     async def _close_connection(self) -> None:
-        if self._writer is not None:
-            self._writer.close()
-            try:
-                await self._writer.wait_closed()
-            except Exception:
-                pass
+        writer = self._writer
         self._reader = None
         self._writer = None
+        self._connection_loop = None
+
+        if writer is not None:
+            try:
+                writer.close()
+            except RuntimeError:
+                # Proactor transports can already be bound to a closed loop.
+                return
+            try:
+                await writer.wait_closed()
+            except Exception:
+                pass
 
     def _encode_command(self, *parts: str | int) -> bytes:
         encoded = [f"*{len(parts)}\r\n".encode("utf-8")]
@@ -181,12 +200,40 @@ _STORE_LOCK = Lock()
 _STORE_CACHE: dict[str, object] = {}
 
 
+def normalize_redis_url(redis_url: str) -> str:
+    """Normalize common Redis URL formats to a plain redis:// or rediss:// URI."""
+    if not isinstance(redis_url, str) or not redis_url.strip():
+        raise ValueError("REDIS_URL must be a non-empty string")
+
+    normalized = redis_url.strip()
+    if normalized.startswith("redis-cli"):
+        if " -u " in normalized:
+            normalized = normalized.split(" -u ", 1)[1].strip()
+        elif "redis://" in normalized:
+            normalized = normalized[normalized.index("redis://") :].strip()
+        elif "rediss://" in normalized:
+            normalized = normalized[normalized.index("rediss://") :].strip()
+
+    if "rediss://" in normalized and not normalized.startswith("rediss://"):
+        normalized = normalized[normalized.index("rediss://") :].strip()
+    elif "redis://" in normalized and not normalized.startswith("redis://"):
+        normalized = normalized[normalized.index("redis://") :].strip()
+
+    return normalized
+
+
 def get_redis_url() -> str | None:
-    return os.getenv("REDIS_URL")
+    raw_value = os.getenv("REDIS_URL") or os.getenv("Redis_URL")
+    if not raw_value:
+        return None
+    return normalize_redis_url(raw_value)
 
 
 def build_rate_limit_store(namespace: str):
     """Return a shared rate-limit store backed by Redis when configured."""
+    if os.getenv("TESTING", "").lower() in {"1", "true", "yes"}:
+        return MemoryRateLimitStore()
+
     redis_url = get_redis_url()
     cache_key = f"{namespace}:{redis_url or 'memory'}"
 
@@ -206,6 +253,7 @@ def build_rate_limit_store(namespace: str):
 __all__ = [
     "RedisClient",
     "RedisRateLimitStore",
+    "normalize_redis_url",
     "get_redis_url",
     "build_rate_limit_store",
 ]

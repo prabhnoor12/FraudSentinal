@@ -13,13 +13,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-os.environ.setdefault("TESTING", "1")
-os.environ.setdefault("DATABASE_URL", "sqlite:///./test_app.db")
-os.environ.setdefault("SECRET_KEY", "TestSecretKey123!TestSecretKey123!")
+os.environ["TESTING"] = "1"
+os.environ["DATABASE_URL"] = "sqlite:///./test_app.db"
+os.environ["SECRET_KEY"] = "TestSecretKey123!TestSecretKey123!"
+os.environ["JWT_ISSUER"] = "FraudSentinal"
+os.environ["JWT_AUDIENCE"] = "fraudsentinel-api"
 
 from app import app
 from database import get_db
 from database import Base
+from middleware.rate_limiting_middleware import MemoryRateLimitStore
 
 # Use an in-memory SQLite database for testing
 SQLALCHEMY_DATABASE_URL = "sqlite://"
@@ -65,6 +68,16 @@ def mock_mfa_service():
         ),
     ):
         yield
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limit_stores():
+    for middleware in app.user_middleware:
+        options = getattr(middleware, "options", {})
+        store = options.get("rate_limit_store")
+        if isinstance(store, MemoryRateLimitStore):
+            store.reset()
+    yield
 
 
 @pytest.fixture

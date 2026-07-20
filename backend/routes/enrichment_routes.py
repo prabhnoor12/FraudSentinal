@@ -9,6 +9,12 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_org_id
 from database import get_db
+from utils.security_utils import (
+    normalize_card_number,
+    normalize_country_code,
+    normalize_ip_address,
+    passes_luhn_check,
+)
 
 router = APIRouter(prefix="/enrichment", tags=["enrichment"])
 
@@ -31,15 +37,16 @@ def lookup_ip_geolocation(
     """Lookup IP geolocation data for a given IP address."""
     from cruds.ip_geolocation_crud import get_geolocation_by_ip
 
-    geo = get_geolocation_by_ip(db, ip_address)
+    normalized_ip = normalize_ip_address(ip_address)
+    geo = get_geolocation_by_ip(db, normalized_ip)
     if not geo:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No geolocation data found for IP: {ip_address}",
+            detail=f"No geolocation data found for IP: {normalized_ip}",
         )
 
     return {
-        "ip_address": ip_address,
+        "ip_address": normalized_ip,
         "country_code": geo.country_code,
         "region": geo.region,
         "city": geo.city,
@@ -102,15 +109,37 @@ def lookup_bin(
             detail="Either bin_number or card_number must be provided",
         )
 
+    normalized_bin_number = normalize_card_number(bin_number) if bin_number else None
+    normalized_card_number = (
+        normalize_card_number(card_number) if card_number else None
+    )
+
+    if normalized_bin_number is not None and len(normalized_bin_number) != 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="BIN number must be exactly 6 digits",
+        )
+
+    if normalized_card_number is not None and len(normalized_card_number) >= 12:
+        if not passes_luhn_check(normalized_card_number):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Card number failed validation",
+            )
+
     if bin_number:
-        bin_data = get_bin_by_number(db, bin_number)
+        bin_data = get_bin_by_number(db, normalized_bin_number)
     else:
-        bin_data = get_bin_by_card_number(db, card_number)
+        bin_data = get_bin_by_card_number(db, normalized_card_number)
 
     if not bin_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No BIN data found for: {bin_number or card_number[:6] + '******'}",
+            detail=(
+                f"No BIN data found for: {normalized_bin_number}"
+                if normalized_bin_number
+                else f"No BIN data found for: {normalized_card_number[:6] + '******'}"
+            ),
         )
 
     return {
@@ -218,26 +247,42 @@ def test_enrichment_signals(
         get_enriched_transaction_data,
     )
 
+    normalized_ip = normalize_ip_address(ip_address) if ip_address else None
+    normalized_card_number = (
+        normalize_card_number(card_number) if card_number else None
+    )
+    if normalized_card_number and len(normalized_card_number) >= 12:
+        if not passes_luhn_check(normalized_card_number):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Card number failed validation",
+            )
+    normalized_billing_country = (
+        normalize_country_code(billing_country) if billing_country else None
+    )
+
     # Get enrichment signals
     signals = enrich_transaction_signals(
         db,
-        ip_address=ip_address,
-        card_number=card_number,
-        billing_country=billing_country,
+        ip_address=normalized_ip,
+        card_number=normalized_card_number,
+        billing_country=normalized_billing_country,
     )
 
     # Get flat enrichment data for rule engine
     enrichment_data = get_enriched_transaction_data(
         db,
-        ip_address=ip_address,
-        card_number=card_number,
-        billing_country=billing_country,
+        ip_address=normalized_ip,
+        card_number=normalized_card_number,
+        billing_country=normalized_billing_country,
     )
 
     return {
-        "ip_address": ip_address,
-        "card_number": card_number[:6] + "******" if card_number else None,
-        "billing_country": billing_country,
+        "ip_address": normalized_ip,
+        "card_number": (
+            normalized_card_number[:6] + "******" if normalized_card_number else None
+        ),
+        "billing_country": normalized_billing_country,
         "signals": {
             "ip_geolocation_available": signals.ip_geo.geolocation_available,
             "ip_country": signals.ip_geo.ip_country_code
