@@ -21,6 +21,8 @@ from schemas.billing_schemas import (
     BillingRecordCreate,
     BillingRecordOut,
     GraphQLErrorOut,
+    RazorpayBillingLinkOut,
+    RazorpayBillingLinkRequest,
     SubscriptionMutationInput,
     SubscriptionMutationResult,
 )
@@ -193,6 +195,31 @@ def create_billing_record(
 ):
     payload.organisation_id = org_id
     return billing_service.create_billing_record_service(db, payload)
+
+
+@router.post(
+    "/razorpay/link",
+    response_model=RazorpayBillingLinkOut,
+    status_code=status.HTTP_200_OK,
+    summary="Link Razorpay billing identifiers",
+    description="Stores the authenticated organisation's Razorpay customer and subscription identifiers so incoming webhooks can resolve the tenant before the first provider callback with organisation notes.",
+    dependencies=[Depends(require_scopes("billing:write"))],
+)
+def link_razorpay_billing(
+    request: Request,
+    payload: RazorpayBillingLinkRequest,
+    org_id: int = Depends(get_current_org_id),
+    principal=Depends(_require_billing_mutation_actor),
+    db: Session = Depends(get_db),
+):
+    result = billing_service.link_razorpay_billing_service(
+        db,
+        principal=principal,
+        organisation_id=org_id,
+        payload=payload,
+        **_audit_context(request),
+    )
+    return RazorpayBillingLinkOut.model_validate(result)
 
 
 @router.post(

@@ -138,3 +138,16 @@ class BillingEntitlementsOut(StrictSchema):
     blocked_features: list[str]
     usage_metrics: list[UsageMetricOut]
     cached_at: datetime
+
+
+class RazorpayBillingLinkRequest(StrictSchema):
+    customer_external_id: Optional[str] = None
+    subscription_external_id: Optional[str] = None
+
+
+class RazorpayBillingLinkOut(StrictSchema):
+    organisation_id: int
+    billing_provider: str
+    billing_customer_external_id: Optional[str] = None
+    billing_subscription_external_id: Optional[str] = None
+    updated_at: datetime

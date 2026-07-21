@@ -6,6 +6,7 @@ from cruds import billing_crud, organisation_crud, usage_crud, user_crud
 from schemas.billing_schemas import (
     BillingPlanCreate,
     BillingRecordCreate,
+    RazorpayBillingLinkRequest,
     SubscriptionMutationInput,
 )
 from services import entitlement_service
@@ -284,4 +285,86 @@ def update_subscription_service(
         "current_subscription_status": organisation.subscription_status,
         "billing_record_id": getattr(billing_record, "id", None),
         "changed_at": datetime.now(UTC),
+    }
+
+
+def link_razorpay_billing_service(
+    db: Session,
+    *,
+    principal,
+    organisation_id: int,
+    payload: RazorpayBillingLinkRequest,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+):
+    _require_subscription_admin(principal)
+    if not payload.customer_external_id and not payload.subscription_external_id:
+        raise ValidationError(
+            "customer_external_id or subscription_external_id is required"
+        )
+
+    organisation = organisation_crud.get_organisation_by_id(db, organisation_id)
+    if organisation is None:
+        raise NotFoundError("Organisation not found")
+
+    if organisation.billing_provider not in (None, "", "razorpay"):
+        raise ValidationError(
+            "Organisation is already linked to a different billing provider",
+            details={"billing_provider": organisation.billing_provider},
+        )
+
+    previous_state = {
+        "billing_provider": organisation.billing_provider,
+        "billing_customer_external_id": organisation.billing_customer_external_id,
+        "billing_subscription_external_id": organisation.billing_subscription_external_id,
+    }
+    next_customer_external_id = (
+        payload.customer_external_id or organisation.billing_customer_external_id
+    )
+    next_subscription_external_id = (
+        payload.subscription_external_id or organisation.billing_subscription_external_id
+    )
+
+    try:
+        organisation_crud.update_organisation(
+            db,
+            organisation,
+            commit=False,
+            billing_provider="razorpay",
+            billing_customer_external_id=next_customer_external_id,
+            billing_subscription_external_id=next_subscription_external_id,
+        )
+        AuditService.log_subscription_change(
+            db,
+            action="billing_provider_linked",
+            user_id=getattr(principal.user, "id", None),
+            organisation_id=organisation_id,
+            old_value=previous_state,
+            new_value={
+                "billing_provider": "razorpay",
+                "billing_customer_external_id": next_customer_external_id,
+                "billing_subscription_external_id": next_subscription_external_id,
+            },
+            details={
+                "provider": "razorpay",
+                "actor_type": principal.principal_type,
+                "service_account_id": getattr(principal.service_account, "id", None),
+            },
+            ip_address=ip_address,
+            user_agent=user_agent,
+            commit=False,
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    db.refresh(organisation)
+    entitlement_service.invalidate_entitlement_cache(organisation_id)
+    return {
+        "organisation_id": organisation.id,
+        "billing_provider": organisation.billing_provider,
+        "billing_customer_external_id": organisation.billing_customer_external_id,
+        "billing_subscription_external_id": organisation.billing_subscription_external_id,
+        "updated_at": organisation.updated_at,
     }
