@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Any, Dict, Optional
 from sqlalchemy.orm import Session
 from cruds import audit_crud

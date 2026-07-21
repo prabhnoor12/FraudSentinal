@@ -14,7 +14,6 @@ from database import get_db
 from schemas.audit_schemas import AuditContext
 from schemas.fraud_check_schemas import FraudCheckRequest, FraudCheckResponse
 from services import (
-    auth_service,
     background_task_service,
     fraud_check_service,
     fraud_metrics_service,

@@ -11,7 +11,6 @@ from starlette.responses import JSONResponse, Response
 from auth import decode_access_token
 from cruds import auth_crud
 from database import SessionLocal
-from services import auth_service
 from utils.security_utils import fingerprint_token
 
 

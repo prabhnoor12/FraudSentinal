@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 from auth_dependencies import get_current_user
 from database import get_db
 from schemas.auth_schemas import (
-    APIKeyAlertOut,
     APIKeyAlertListResponse,
     APIKeyCreateRequest,
     APIKeyListResponse,
