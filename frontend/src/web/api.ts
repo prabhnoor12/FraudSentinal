@@ -128,7 +128,7 @@ function getApiBaseUrlFromMeta(): string | null {
 }
 
 export function getApiBaseUrl(): string {
-  return getApiBaseUrlFromMeta() ?? 'http://localhost:8000';
+  return getApiBaseUrlFromMeta() ?? 'http://localhost:8000/api/v1';
 }
 
 export function getAccessToken(): string | null {
