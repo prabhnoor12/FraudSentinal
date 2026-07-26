@@ -11,22 +11,61 @@ from utils.exception_handling_utils import ConflictError, NotFoundError
 def create_settings_service(db: Session, payload: OrganisationSettingsCreate):
     if not organisation_crud.get_organisation_by_id(db, payload.organisation_id):
         raise NotFoundError("Organisation not found")
+
     if settings_crud.get_settings_by_organisation_id(db, payload.organisation_id):
         raise ConflictError("Settings already exist for this organisation")
+
     return settings_crud.create_settings(db, **payload.model_dump())
 
 
+def create_default_settings_service(
+    db: Session, organisation_id: int
+):
+    """
+    Creates the default settings for a newly created organisation.
+    Intended for internal use only.
+    """
+
+    if settings_crud.get_settings_by_organisation_id(db, organisation_id):
+        return settings_crud.get_settings_by_organisation_id(
+            db, organisation_id
+        )
+
+    return settings_crud.create_settings(
+        db,
+        organisation_id=organisation_id,
+        currency="USD",
+        timezone="UTC",
+        review_threshold=40,
+        decline_threshold=70,
+        enable_billing=True,
+        enable_usage_tracking=True,
+        notification_email=None,
+        notes=None,
+    )
+
+
 def get_settings_service(db: Session, organisation_id: int):
-    settings = settings_crud.get_settings_by_organisation_id(db, organisation_id)
+    settings = settings_crud.get_settings_by_organisation_id(
+        db, organisation_id
+    )
+
     if not settings:
         raise NotFoundError("Organisation settings not found")
+
     return settings
 
 
 def update_settings_service(
-    db: Session, organisation_id: int, payload: OrganisationSettingsUpdate
+    db: Session,
+    organisation_id: int,
+    payload: OrganisationSettingsUpdate,
 ):
     settings = get_settings_service(db, organisation_id)
+
     return settings_crud.update_settings(
-        db, settings, **payload.model_dump(exclude_unset=True)
+        db,
+        settings,
+        **payload.model_dump(exclude_unset=True),
     )
+    

@@ -205,6 +205,9 @@ export async function apiRequest<T>(
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
 
+  console.log("Base URL:", baseUrl);
+  console.log("Path:", path);
+  console.log("Final URL:", url);
   let response: Response;
   try {
     response = await fetch(url, {
