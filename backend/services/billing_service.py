@@ -12,6 +12,7 @@ from schemas.billing_schemas import (
 from services import entitlement_service
 from services.audit_service import AuditService
 from utils.exception_handling_utils import ForbiddenError, NotFoundError, ValidationError
+from utils.ownership_utils import require_user_in_organisation
 
 SUBSCRIPTION_ACTIONS = {
     "upgrade",
@@ -56,11 +57,7 @@ def list_billing_plans_service(
 
 
 def create_billing_record_service(db: Session, payload: BillingRecordCreate):
-    user = user_crud.get_user_by_id(db, payload.user_id)
-    if not user or user.organisation_id != payload.organisation_id:
-        raise NotFoundError("User not found")
-    if not organisation_crud.get_organisation_by_id(db, payload.organisation_id):
-        raise NotFoundError("Organisation not found")
+    require_user_in_organisation(db, user_id=payload.user_id, organisation_id=payload.organisation_id)
     if payload.usage_event_id is not None:
         usage_events = usage_crud.list_usage_events(
             db,

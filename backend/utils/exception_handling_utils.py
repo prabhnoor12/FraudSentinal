@@ -8,8 +8,17 @@ from fastapi import HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from services.fraud_metrics_service import fraud_metrics
+
 
 logger = logging.getLogger("fraudsentinel.exceptions")
+
+
+def _record_error_safe(error_type: str) -> None:
+    try:
+        fraud_metrics.record_error(error_type)
+    except Exception:
+        logger.debug("metrics_error_record_failed", exc_info=True)
 
 
 class AppException(Exception):
@@ -177,6 +186,7 @@ class ExternalServiceError(AppException):
 async def handle_app_exception(request: Request, exc: AppException) -> JSONResponse:
     """Convert application exceptions into JSON responses."""
     request_id = getattr(request.state, "request_id", "")
+    _record_error_safe(exc.error_code)
     payload = {
         "success": False,
         "error": {
@@ -209,6 +219,7 @@ async def handle_http_exception(request: Request, exc: HTTPException) -> JSONRes
     request_id = getattr(request.state, "request_id", "")
     details = exc.detail if isinstance(exc.detail, dict) else {}
     message = exc.detail if isinstance(exc.detail, str) else "Request failed"
+    _record_error_safe(f"http_{exc.status_code}")
     payload = {
         "success": False,
         "error": {
@@ -239,6 +250,7 @@ async def handle_validation_exception(
 ) -> JSONResponse:
     """Convert request validation errors into a structured JSON response."""
     request_id = getattr(request.state, "request_id", "")
+    _record_error_safe("schema_validation_error")
     payload = {
         "success": False,
         "error": {
@@ -268,6 +280,7 @@ async def handle_validation_exception(
 async def handle_unexpected_exception(request: Request, exc: Exception) -> JSONResponse:
     """Convert unexpected exceptions into a safe JSON response."""
     request_id = getattr(request.state, "request_id", "")
+    _record_error_safe("internal_server_error")
     payload = {
         "success": False,
         "error": {

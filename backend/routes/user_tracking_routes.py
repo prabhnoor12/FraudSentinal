@@ -70,7 +70,12 @@ def list_usage_events(
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_scopes("usage:write"))],
 )
-def create_usage_event(payload: UsageEventCreate, db: Session = Depends(get_db)):
+def create_usage_event(
+    payload: UsageEventCreate,
+    org_id: int = Depends(get_current_org_id),
+    db: Session = Depends(get_db),
+):
+    payload.organisation_id = org_id
     return usage_service.create_usage_event_service(db, payload)
 
 
@@ -115,5 +120,10 @@ def list_usage_summaries(
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_scopes("usage:write"))],
 )
-def create_usage_summary(payload: UsageSummaryCreate, db: Session = Depends(get_db)):
+def create_usage_summary(
+    payload: UsageSummaryCreate,
+    org_id: int = Depends(get_current_org_id),
+    db: Session = Depends(get_db),
+):
+    payload.organisation_id = org_id
     return usage_service.create_usage_summary_service(db, payload)

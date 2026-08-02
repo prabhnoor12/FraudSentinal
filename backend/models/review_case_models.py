@@ -1,12 +1,38 @@
 from datetime import datetime, UTC
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    Column,
+    DateTime,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Integer,
+    String,
+    Text,
+)
 
 from database import Base
 
 
 class ReviewCase(Base):
     __tablename__ = "review_cases"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["transaction_id", "organisation_id"],
+            ["transactions.id", "transactions.organisation_id"],
+            name="fk_review_cases_transaction_org",
+        ),
+        ForeignKeyConstraint(
+            ["decision_id", "organisation_id"],
+            ["decisions.id", "decisions.organisation_id"],
+            name="fk_review_cases_decision_org",
+        ),
+        ForeignKeyConstraint(
+            ["user_id", "organisation_id"],
+            ["users.id", "users.organisation_id"],
+            name="fk_review_cases_user_org",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     transaction_id = Column(

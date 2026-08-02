@@ -95,6 +95,7 @@ def list_billing_plans(
 ):
     normalized_offset = normalize_offset(offset)
     normalized_limit = normalize_limit(limit, default=100, maximum=200)
+    normalized_sort_dir = normalize_sort_dir(sort_dir)
     items, total = billing_service.list_billing_plans_service(
         db,
         organisation_id=org_id,
@@ -102,7 +103,7 @@ def list_billing_plans(
         offset=normalized_offset,
         limit=normalized_limit,
         sort_by=sort_by,
-        sort_dir=normalize_sort_dir(sort_dir),
+        sort_dir=normalized_sort_dir,
     )
     return build_paginated_payload(
         request=request,
@@ -157,6 +158,7 @@ def list_billing_records(
 ):
     normalized_offset = normalize_offset(offset)
     normalized_limit = normalize_limit(limit, default=100, maximum=200)
+    normalized_sort_dir = normalize_sort_dir(sort_dir)
     items, total = billing_service.list_billing_records_service(
         db,
         user_id=user_id,
@@ -165,7 +167,7 @@ def list_billing_records(
         offset=normalized_offset,
         limit=normalized_limit,
         sort_by=sort_by,
-        sort_dir=normalize_sort_dir(sort_dir),
+        sort_dir=normalized_sort_dir,
     )
     return build_paginated_payload(
         request=request,

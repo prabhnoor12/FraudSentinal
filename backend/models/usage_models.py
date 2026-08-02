@@ -1,6 +1,16 @@
 from datetime import datetime, UTC
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 
 from database import Base
 
@@ -9,6 +19,14 @@ class UsageEvent(Base):
     """Tracks user usage events that can later be billed."""
 
     __tablename__ = "usage_events"
+    __table_args__ = (
+        UniqueConstraint("id", "organisation_id", name="uq_usage_events_id_organisation"),
+        ForeignKeyConstraint(
+            ["user_id", "organisation_id"],
+            ["users.id", "users.organisation_id"],
+            name="fk_usage_events_user_org",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
@@ -31,6 +49,16 @@ class UsageSummary(Base):
     """Stores monthly or period-based usage totals for a user or organisation."""
 
     __tablename__ = "usage_summaries"
+    __table_args__ = (
+        UniqueConstraint(
+            "id", "organisation_id", name="uq_usage_summaries_id_organisation"
+        ),
+        ForeignKeyConstraint(
+            ["user_id", "organisation_id"],
+            ["users.id", "users.organisation_id"],
+            name="fk_usage_summaries_user_org",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)

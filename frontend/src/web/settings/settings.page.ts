@@ -23,42 +23,82 @@ type OrgSettings = {
         <p class="fs-muted">Configure organisation and account preferences.</p>
       </div>
 
+      <div class="fs-summary-grid">
+        <div class="fs-summary-card">
+          <span class="fs-summary-label">Currency</span>
+          <strong>{{ form.controls.currency.value }}</strong>
+        </div>
+        <div class="fs-summary-card">
+          <span class="fs-summary-label">Timezone</span>
+          <strong>{{ form.controls.timezone.value }}</strong>
+        </div>
+        <div class="fs-summary-card">
+          <span class="fs-summary-label">Tracking</span>
+          <strong>{{ form.controls.enable_usage_tracking.value ? 'Enabled' : 'Disabled' }}</strong>
+        </div>
+      </div>
+
       <div class="fs-card">
         <div class="fs-card-header">
+          <span class="fs-eyebrow">Organisation controls</span>
           <h2>Organisation Settings</h2>
+          <p class="fs-muted">Manage billing readiness, usage tracking, default currency, and notification routing.</p>
         </div>
 
         @if (loading()) {
-          <div class="fs-skeleton">Loading…</div>
+          <div class="fs-skeleton">Loading...</div>
         } @else if (error()) {
           <div class="fs-alert is-error">{{ error() }}</div>
         } @else {
           <form class="fs-form" [formGroup]="form" (ngSubmit)="save()">
-            <div class="fs-form-grid">
-              <label class="fs-field">
-                <span>Currency</span>
-                <input class="fs-input" formControlName="currency" />
-              </label>
+            <div class="fs-settings-section">
+              <div class="fs-section-header">
+                <span class="fs-eyebrow">Regional defaults</span>
+                <h3>Locale and delivery</h3>
+              </div>
 
-              <label class="fs-field">
-                <span>Timezone</span>
-                <input class="fs-input" formControlName="timezone" />
-              </label>
+              <div class="fs-form-grid">
+                <label class="fs-field">
+                  <span>Currency</span>
+                  <input class="fs-input" formControlName="currency" />
+                </label>
 
-              <label class="fs-field fs-field-full">
-                <span>Notification Email</span>
-                <input class="fs-input" formControlName="notification_email" />
-              </label>
+                <label class="fs-field">
+                  <span>Timezone</span>
+                  <input class="fs-input" formControlName="timezone" />
+                </label>
 
-              <label class="fs-field fs-field-check">
-                <input type="checkbox" formControlName="enable_billing" />
-                <span>Enable billing</span>
-              </label>
+                <label class="fs-field fs-field-full">
+                  <span>Notification Email</span>
+                  <input class="fs-input" formControlName="notification_email" />
+                </label>
+              </div>
+            </div>
 
-              <label class="fs-field fs-field-check">
-                <input type="checkbox" formControlName="enable_usage_tracking" />
-                <span>Enable usage tracking</span>
-              </label>
+            <div class="fs-settings-section">
+              <div class="fs-section-header">
+                <span class="fs-eyebrow">Feature flags</span>
+                <h3>Platform modules</h3>
+              </div>
+
+              <div class="fs-toggle-grid">
+                <label class="fs-field fs-field-check">
+                  <input type="checkbox" formControlName="enable_billing" />
+                  <span>Enable billing</span>
+                </label>
+
+                <label class="fs-field fs-field-check">
+                  <input type="checkbox" formControlName="enable_usage_tracking" />
+                  <span>Enable usage tracking</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="fs-settings-section">
+              <div class="fs-section-header">
+                <span class="fs-eyebrow">Internal notes</span>
+                <h3>Operator context</h3>
+              </div>
 
               <label class="fs-field fs-field-full">
                 <span>Notes</span>
@@ -68,10 +108,10 @@ type OrgSettings = {
 
             <div class="fs-form-actions">
               <button class="fs-button" type="submit" [disabled]="saving() || form.invalid">
-                @if (saving()) { Saving… } @else { Save changes }
+                @if (saving()) { Saving... } @else { Save changes }
               </button>
               @if (saved()) {
-                <span class="fs-muted">Saved.</span>
+                <span class="fs-status-note">Saved.</span>
               }
             </div>
           </form>
@@ -79,6 +119,7 @@ type OrgSettings = {
       </div>
     </section>
   `,
+  styleUrl: './settings.page.scss',
 })
 export class SettingsPage {
   private readonly fb = new FormBuilder();
@@ -152,4 +193,3 @@ export class SettingsPage {
     }
   }
 }
-

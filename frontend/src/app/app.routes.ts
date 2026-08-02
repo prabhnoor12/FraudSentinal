@@ -3,6 +3,11 @@ import { authGuard } from '../web/auth.guard';
 
 export const routes: Routes = [
   {
+    path: '',
+    pathMatch: 'full',
+    loadComponent: () => import('../web/landing/landing.page').then((m) => m.LandingPage),
+  },
+  {
     path: 'login',
     children: [
       {
@@ -15,6 +20,10 @@ export const routes: Routes = [
       },
       { path: '', pathMatch: 'full', redirectTo: 'sign-in' },
     ],
+  },
+  {
+    path: 'docs',
+    loadComponent: () => import('../web/docs/docs.page').then((m) => m.DocsPage),
   },
   {
     path: '',

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_org_id, oauth2_scheme
 from database import get_db
-from schemas.decision_schemas import DecisionListResponse, DecisionOut
+from schemas.decision_schemas import DecisionListResponse, DecisionOut, DecisionReplayOut
 from services import auth_service, decision_service
 from utils.pagination_utils import (
     build_paginated_payload,
@@ -37,6 +37,7 @@ def list_decisions(
 ):
     normalized_offset = normalize_offset(offset)
     normalized_limit = normalize_limit(limit, default=100, maximum=200)
+    normalized_sort_dir = normalize_sort_dir(sort_dir)
     items, total = decision_service.list_decisions_service(
         db,
         user_id=user_id,
@@ -45,7 +46,7 @@ def list_decisions(
         offset=normalized_offset,
         limit=normalized_limit,
         sort_by=sort_by,
-        sort_dir=normalize_sort_dir(sort_dir),
+        sort_dir=normalized_sort_dir,
     )
     return build_paginated_payload(
         request=request,
@@ -63,5 +64,16 @@ def get_decision(
     db: Session = Depends(get_db),
 ):
     return decision_service.get_decision_service(
+        db, decision_id, organisation_id=org_id
+    )
+
+
+@router.post("/{decision_id}/replay", response_model=DecisionReplayOut)
+def replay_decision(
+    decision_id: int,
+    org_id: int = Depends(get_current_org_id),
+    db: Session = Depends(get_db),
+):
+    return decision_service.replay_decision_service(
         db, decision_id, organisation_id=org_id
     )

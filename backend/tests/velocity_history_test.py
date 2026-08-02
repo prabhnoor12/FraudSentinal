@@ -14,18 +14,18 @@ def _register_and_login(
     if organisation_name is not None:
         payload["organisation_name"] = organisation_name
 
-    register_response = client.post("/auth/register", json=payload)
+    register_response = client.post("/api/v1/auth/register", json=payload)
     assert register_response.status_code in (200, 201)
 
     login_response = client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         json={"email": email, "password": password},
     )
     assert login_response.status_code == 200
     token = login_response.json()["access_token"]
 
     me_response = client.get(
-        "/auth/me",
+        "/api/v1/auth/me",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert me_response.status_code == 200
@@ -157,7 +157,7 @@ def test_check_fraud_creates_velocity_history_risk_signals(client, db):
     )
 
     response = client.post(
-        "/check-fraud",
+        "/api/v1/check-fraud",
         json={
             "user_id": me["id"],
             "organisation_id": me["organisation_id"],

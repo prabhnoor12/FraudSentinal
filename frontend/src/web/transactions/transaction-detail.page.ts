@@ -9,21 +9,21 @@ import { ApiError, Decision, ReviewCase, RiskSignal, Transaction, api } from '..
   template: `
     <section class="fs-page">
       <div class="fs-page-header">
-        <a class="fs-back-link" routerLink="/review-cases">← Back to Review Cases</a>
+        <a class="fs-back-link" routerLink="/review-cases">Back to Review Cases</a>
         <h1>Transaction Detail</h1>
-        <p class="fs-muted">Review the transaction record, fraud decision, and supporting signals.</p>
+        <p class="fs-muted">Review the transaction record, decision trail, and supporting signals.</p>
       </div>
 
       @if (loading()) {
         <div class="fs-card">
-          <div class="fs-skeleton">Loading transaction context…</div>
+          <div class="fs-skeleton">Loading transaction context...</div>
         </div>
       } @else if (error()) {
         <div class="fs-card">
           <div class="fs-alert is-error">{{ error() }}</div>
         </div>
       } @else if (transaction()) {
-        <div class="fs-detail-grid">
+        <div class="fs-detail-grid fs-detail-grid-top">
           <div class="fs-stat-card">
             <span class="fs-stat-label">Transaction</span>
             <strong>#{{ transaction()!.id }}</strong>
@@ -54,56 +54,59 @@ import { ApiError, Decision, ReviewCase, RiskSignal, Transaction, api } from '..
           <div class="fs-card" id="transaction-summary">
             <div class="fs-card-header">
               <h2>Transaction Context</h2>
+              <p class="fs-muted">Key transaction properties captured for review and traceability.</p>
             </div>
             <div class="fs-info-grid">
-              <div><span class="fs-stat-label">External ID</span><div>{{ transaction()!.external_transaction_id || 'n/a' }}</div></div>
-              <div><span class="fs-stat-label">IP Address</span><div>{{ transaction()!.ip_address || 'n/a' }}</div></div>
-              <div><span class="fs-stat-label">Device ID</span><div>{{ transaction()!.device_id || 'n/a' }}</div></div>
-              <div><span class="fs-stat-label">Account Age</span><div>{{ transaction()!.account_age_days ?? 'n/a' }}</div></div>
-              <div><span class="fs-stat-label">Billing Country</span><div>{{ transaction()!.billing_country || 'n/a' }}</div></div>
-              <div><span class="fs-stat-label">Shipping Country</span><div>{{ transaction()!.shipping_country || 'n/a' }}</div></div>
-              <div><span class="fs-stat-label">Tx Last 24h</span><div>{{ transaction()!.transactions_last_24h }}</div></div>
-              <div><span class="fs-stat-label">Failed Attempts</span><div>{{ transaction()!.failed_attempts_last_24h }}</div></div>
+              <div class="fs-info-item"><span class="fs-stat-label">External ID</span><div>{{ transaction()!.external_transaction_id || 'n/a' }}</div></div>
+              <div class="fs-info-item"><span class="fs-stat-label">IP Address</span><div>{{ transaction()!.ip_address || 'n/a' }}</div></div>
+              <div class="fs-info-item"><span class="fs-stat-label">Device ID</span><div>{{ transaction()!.device_id || 'n/a' }}</div></div>
+              <div class="fs-info-item"><span class="fs-stat-label">Account Age</span><div>{{ transaction()!.account_age_days ?? 'n/a' }}</div></div>
+              <div class="fs-info-item"><span class="fs-stat-label">Billing Country</span><div>{{ transaction()!.billing_country || 'n/a' }}</div></div>
+              <div class="fs-info-item"><span class="fs-stat-label">Shipping Country</span><div>{{ transaction()!.shipping_country || 'n/a' }}</div></div>
+              <div class="fs-info-item"><span class="fs-stat-label">Tx Last 24h</span><div>{{ transaction()!.transactions_last_24h }}</div></div>
+              <div class="fs-info-item"><span class="fs-stat-label">Failed Attempts</span><div>{{ transaction()!.failed_attempts_last_24h }}</div></div>
             </div>
           </div>
 
           <div class="fs-card">
             <div class="fs-card-header">
               <h2>Fraud Decision</h2>
-              <a class="fs-back-link" href="#transaction-summary">Back to originating transaction</a>
+              <a class="fs-back-link" href="#transaction-summary">Jump to transaction context</a>
             </div>
 
             @if (decisions().length === 0) {
               <div class="fs-muted">No decision found for this transaction.</div>
             } @else {
-              @for (decision of decisions(); track decision.id) {
-                <div class="fs-card fs-card-subtle">
-                  <div class="fs-detail-grid">
-                    <div class="fs-stat-card">
-                      <span class="fs-stat-label">Decision</span>
-                      <strong>{{ decision.decision }}</strong>
-                    </div>
-                    <div class="fs-stat-card">
-                      <span class="fs-stat-label">Risk Score</span>
-                      <strong>{{ decision.risk_score }}</strong>
-                    </div>
-                  </div>
-                  <div class="fs-stack">
-                    <div>
-                      <span class="fs-stat-label">Reason Codes</span>
-                      <div class="fs-chip-group fs-chip-group-static">
-                        @for (reason of decision.reason_codes; track reason) {
-                          <span class="fs-chip is-static">{{ reason }}</span>
-                        }
+              <div class="fs-stack">
+                @for (decision of decisions(); track decision.id) {
+                  <div class="fs-card fs-card-subtle">
+                    <div class="fs-detail-grid">
+                      <div class="fs-stat-card">
+                        <span class="fs-stat-label">Decision</span>
+                        <strong>{{ decision.decision }}</strong>
+                      </div>
+                      <div class="fs-stat-card">
+                        <span class="fs-stat-label">Risk Score</span>
+                        <strong>{{ decision.risk_score }}</strong>
                       </div>
                     </div>
-                    <div>
-                      <span class="fs-stat-label">Scoring Snapshot</span>
-                      <pre class="fs-json">{{ prettyJson(decision.scoring_snapshot) }}</pre>
+                    <div class="fs-stack">
+                      <div>
+                        <span class="fs-stat-label">Reason Codes</span>
+                        <div class="fs-chip-group fs-chip-group-static">
+                          @for (reason of decision.reason_codes; track reason) {
+                            <span class="fs-chip is-static">{{ reason }}</span>
+                          }
+                        </div>
+                      </div>
+                      <div>
+                        <span class="fs-stat-label">Scoring Snapshot</span>
+                        <pre class="fs-json">{{ prettyJson(decision.scoring_snapshot) }}</pre>
+                      </div>
                     </div>
                   </div>
-                </div>
-              }
+                }
+              </div>
             }
           </div>
         </div>
@@ -112,7 +115,7 @@ import { ApiError, Decision, ReviewCase, RiskSignal, Transaction, api } from '..
           <div class="fs-card">
             <div class="fs-card-header">
               <h2>Risk Signals</h2>
-              <a class="fs-back-link" href="#transaction-summary">Back to originating transaction</a>
+              <a class="fs-back-link" href="#transaction-summary">Jump to transaction context</a>
             </div>
 
             @if (riskSignals().length === 0) {
@@ -132,42 +135,45 @@ import { ApiError, Decision, ReviewCase, RiskSignal, Transaction, api } from '..
             }
           </div>
 
-          <div class="fs-card">
-            <div class="fs-card-header">
-              <h2>Linked Review Cases</h2>
+          <div class="fs-side-stack">
+            <div class="fs-card">
+              <div class="fs-card-header">
+                <h2>Linked Review Cases</h2>
+              </div>
+              @if (linkedReviewCases().length === 0) {
+                <div class="fs-muted">No review cases are linked to this transaction.</div>
+              } @else {
+                <ul class="fs-list">
+                  @for (reviewCase of linkedReviewCases(); track reviewCase.id) {
+                    <li class="fs-list-item">
+                      <div class="fs-list-title">Case #{{ reviewCase.id }} · {{ reviewCase.status }}</div>
+                      <div class="fs-list-meta">
+                        decision #{{ reviewCase.decision_id }} · resolution
+                        {{ reviewCase.resolution_code || 'pending' }} · {{ reviewCase.updated_at }}
+                      </div>
+                      <div class="fs-form-actions">
+                        <a class="fs-button is-secondary" [routerLink]="['/review-cases', reviewCase.id]">
+                          Open case
+                        </a>
+                      </div>
+                    </li>
+                  }
+                </ul>
+              }
             </div>
-            @if (linkedReviewCases().length === 0) {
-              <div class="fs-muted">No review cases are linked to this transaction.</div>
-            } @else {
-              <ul class="fs-list">
-                @for (reviewCase of linkedReviewCases(); track reviewCase.id) {
-                  <li class="fs-list-item">
-                    <div class="fs-list-title">Case #{{ reviewCase.id }} · {{ reviewCase.status }}</div>
-                    <div class="fs-list-meta">
-                      decision #{{ reviewCase.decision_id }} · resolution
-                      {{ reviewCase.resolution_code || 'pending' }} · {{ reviewCase.updated_at }}
-                    </div>
-                    <div class="fs-form-actions">
-                      <a class="fs-button is-secondary" [routerLink]="['/review-cases', reviewCase.id]">
-                        Open case
-                      </a>
-                    </div>
-                  </li>
-                }
-              </ul>
-            }
-          </div>
 
-          <div class="fs-card">
-            <div class="fs-card-header">
-              <h2>Metadata</h2>
+            <div class="fs-card">
+              <div class="fs-card-header">
+                <h2>Metadata</h2>
+              </div>
+              <pre class="fs-json">{{ metadataPreview() }}</pre>
             </div>
-            <pre class="fs-json">{{ metadataPreview() }}</pre>
           </div>
         </div>
       }
     </section>
   `,
+  styleUrl: './transaction-detail.page.scss',
 })
 export class TransactionDetailPage {
   private readonly route = inject(ActivatedRoute);

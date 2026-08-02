@@ -8,48 +8,75 @@ import { api, ApiError } from '../api';
   imports: [ReactiveFormsModule, RouterLink],
   template: `
     <section class="fs-auth">
-      <div class="fs-auth-card fs-card">
-        <div class="fs-card-header">
-          <h1>Sign in</h1>
-          <p class="fs-muted">Access your FraudSentinal dashboard.</p>
-        </div>
+      <div class="fs-auth-shell">
+        <aside class="fs-auth-aside">
+          <p class="fs-auth-kicker">FraudSentinal</p>
+          <h1>Sign in without losing sight of what needs review.</h1>
+          <p class="fs-auth-lead">
+            Access your dashboard, monitor high-risk activity, and keep analyst workflows tidy in
+            one place.
+          </p>
+          <div class="fs-auth-points">
+            <div class="fs-auth-point">
+              <strong>See decisions clearly</strong>
+              <p>Reason codes, audit context, and review actions stay close together.</p>
+            </div>
+            <div class="fs-auth-point">
+              <strong>Keep queues under control</strong>
+              <p>Surface the risky transactions first instead of digging through raw logs.</p>
+            </div>
+            <div class="fs-auth-point">
+              <strong>Stay tenant-safe</strong>
+              <p>Organisation boundaries and operational visibility remain built into the flow.</p>
+            </div>
+          </div>
+        </aside>
 
-        @if (error()) {
-          <div class="fs-alert is-error">{{ error() }}</div>
-        }
+        <div class="fs-auth-card fs-card">
+          <div class="fs-card-header">
+            <p class="fs-auth-eyebrow">Welcome back</p>
+            <h2>Sign in</h2>
+            <p class="fs-muted">Access your FraudSentinal dashboard.</p>
+          </div>
 
-        @if (info()) {
-          <div class="fs-alert is-info">{{ info() }}</div>
-        }
+          @if (error()) {
+            <div class="fs-alert is-error">{{ error() }}</div>
+          }
 
-        <form class="fs-form" [formGroup]="form" (ngSubmit)="submit()">
-          <label class="fs-field">
-            <span>Email</span>
-            <input class="fs-input" formControlName="email" autocomplete="email" />
-          </label>
+          @if (info()) {
+            <div class="fs-alert is-info">{{ info() }}</div>
+          }
 
-          <label class="fs-field">
-            <span>Password</span>
-            <input
-              class="fs-input"
-              type="password"
-              formControlName="password"
-              autocomplete="current-password"
-            />
-          </label>
+          <form class="fs-form" [formGroup]="form" (ngSubmit)="submit()">
+            <label class="fs-field">
+              <span>Email</span>
+              <input class="fs-input" formControlName="email" autocomplete="email" />
+            </label>
 
-          <button class="fs-button" type="submit" [disabled]="busy() || form.invalid">
-            @if (busy()) { Signing in… } @else { Sign in }
-          </button>
-        </form>
+            <label class="fs-field">
+              <span>Password</span>
+              <input
+                class="fs-input"
+                type="password"
+                formControlName="password"
+                autocomplete="current-password"
+              />
+            </label>
 
-        <div class="fs-auth-footer">
-          <span class="fs-muted">No account?</span>
-          <a routerLink="/login/sign-up">Create one</a>
+            <button class="fs-button" type="submit" [disabled]="busy() || form.invalid">
+              @if (busy()) { Signing in... } @else { Sign in }
+            </button>
+          </form>
+
+          <div class="fs-auth-footer">
+            <span class="fs-muted">No account?</span>
+            <a routerLink="/login/sign-up">Create one</a>
+          </div>
         </div>
       </div>
     </section>
   `,
+  styleUrl: './sign-in.page.scss',
 })
 export class SignInPage {
   private readonly fb = new FormBuilder();
@@ -92,4 +119,3 @@ export class SignInPage {
     }
   }
 }
-

@@ -17,17 +17,30 @@ const RESOLUTION_OPTIONS = [
   template: `
     <section class="fs-page">
       <div class="fs-page-header">
-        <a class="fs-back-link" routerLink="/review-cases">← Back to Review Cases</a>
+        <a class="fs-back-link" routerLink="/review-cases">Back to Review Cases</a>
         <h1>Review Case Detail</h1>
-        <p class="fs-muted">Inspect the case record and take analyst action.</p>
+        <p class="fs-muted">Inspect the case record, analyst notes, and next action.</p>
       </div>
 
       <div class="fs-card">
         @if (loading()) {
-          <div class="fs-skeleton">Loading case…</div>
+          <div class="fs-skeleton">Loading case...</div>
         } @else if (error()) {
           <div class="fs-alert is-error">{{ error() }}</div>
         } @else if (reviewCase()) {
+          <div class="fs-detail-hero">
+            <div>
+              <span class="fs-eyebrow">Review case</span>
+              <h2>Case #{{ reviewCase()!.id }}</h2>
+              <p class="fs-muted">
+                Transaction #{{ reviewCase()!.transaction_id }} connected to decision #{{ reviewCase()!.decision_id }}.
+              </p>
+            </div>
+            <span class="fs-status-pill" [class.is-open]="reviewCase()!.status === 'open'">
+              {{ reviewCase()!.status }}
+            </span>
+          </div>
+
           <div class="fs-detail-grid">
             <div class="fs-stat-card">
               <span class="fs-stat-label">Case</span>
@@ -55,7 +68,7 @@ const RESOLUTION_OPTIONS = [
             </div>
           </div>
 
-          <div class="fs-stack">
+          <div class="fs-detail-sections">
             <div class="fs-card fs-card-subtle">
               <div class="fs-card-header">
                 <h3>Analyst Notes</h3>
@@ -71,9 +84,10 @@ const RESOLUTION_OPTIONS = [
             </div>
 
             @if (reviewCase()!.status === 'open') {
-              <form class="fs-form" [formGroup]="resolveForm" (ngSubmit)="resolveCase()">
+              <form class="fs-form fs-detail-form" [formGroup]="resolveForm" (ngSubmit)="resolveCase()">
                 <div class="fs-card-header">
                   <h3>Resolve Case</h3>
+                  <p class="fs-muted">Record the outcome and send the case back into the audit trail.</p>
                 </div>
                 <label class="fs-field">
                   <span>Resolution</span>
@@ -89,7 +103,7 @@ const RESOLUTION_OPTIONS = [
                 </label>
                 <div class="fs-form-actions">
                   <button class="fs-button" type="submit" [disabled]="actionBusy() || resolveForm.invalid">
-                    @if (actionBusy()) { Resolving… } @else { Resolve case }
+                    @if (actionBusy()) { Resolving... } @else { Resolve case }
                   </button>
                   <a class="fs-button is-secondary" [routerLink]="['/transactions', reviewCase()!.transaction_id]">
                     Open transaction
@@ -97,9 +111,10 @@ const RESOLUTION_OPTIONS = [
                 </div>
               </form>
             } @else {
-              <form class="fs-form" [formGroup]="reopenForm" (ngSubmit)="reopenCase()">
+              <form class="fs-form fs-detail-form" [formGroup]="reopenForm" (ngSubmit)="reopenCase()">
                 <div class="fs-card-header">
                   <h3>Reopen Case</h3>
+                  <p class="fs-muted">Explain why this case needs another analyst pass.</p>
                 </div>
                 <label class="fs-field">
                   <span>Reason</span>
@@ -107,7 +122,7 @@ const RESOLUTION_OPTIONS = [
                 </label>
                 <div class="fs-form-actions">
                   <button class="fs-button" type="submit" [disabled]="actionBusy() || reopenForm.invalid">
-                    @if (actionBusy()) { Reopening… } @else { Reopen case }
+                    @if (actionBusy()) { Reopening... } @else { Reopen case }
                   </button>
                   <a class="fs-button is-secondary" [routerLink]="['/transactions', reviewCase()!.transaction_id]">
                     Open transaction
@@ -120,6 +135,7 @@ const RESOLUTION_OPTIONS = [
       </div>
     </section>
   `,
+  styleUrl: './review-case-detail.page.scss',
 })
 export class ReviewCaseDetailPage {
   private readonly fb = new FormBuilder();
@@ -214,4 +230,3 @@ export class ReviewCaseDetailPage {
     this.reopenForm.patchValue({ reason: '' });
   }
 }
-

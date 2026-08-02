@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from auth import get_current_org_id, oauth2_scheme
 from database import get_db
+from utils.exception_handling_utils import NotFoundError
 from schemas.organisation_schemas import (
     OrganisationCreate,
     OrganisationListResponse,
@@ -10,6 +11,7 @@ from schemas.organisation_schemas import (
     OrganisationUpdate,
 )
 from services import auth_service, organisation_service, organisation_summary_service
+from utils.ownership_utils import require_organisation
 from utils.pagination_utils import (
     build_paginated_payload,
     normalize_limit,
@@ -87,12 +89,9 @@ def get_organisation(
     org_id: int = Depends(get_current_org_id),
     db: Session = Depends(get_db),
 ):
+    require_organisation(db, organisation_id)
     if organisation_id != org_id:
-        from fastapi import HTTPException
-
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Organisation not found"
-        )
+        raise NotFoundError("Organisation not found")
     return organisation_service.get_organisation_service(db, organisation_id)
 
 
@@ -103,12 +102,9 @@ def update_organisation(
     org_id: int = Depends(get_current_org_id),
     db: Session = Depends(get_db),
 ):
+    require_organisation(db, organisation_id)
     if organisation_id != org_id:
-        from fastapi import HTTPException
-
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Organisation not found"
-        )
+        raise NotFoundError("Organisation not found")
     return organisation_service.update_organisation_service(
         db, organisation_id, payload
     )
@@ -120,11 +116,8 @@ def delete_organisation(
     org_id: int = Depends(get_current_org_id),
     db: Session = Depends(get_db),
 ):
+    require_organisation(db, organisation_id)
     if organisation_id != org_id:
-        from fastapi import HTTPException
-
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Organisation not found"
-        )
+        raise NotFoundError("Organisation not found")
     organisation_service.delete_organisation_service(db, organisation_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

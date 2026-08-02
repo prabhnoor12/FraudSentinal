@@ -40,9 +40,12 @@ class LoggingMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         start_time = time.perf_counter()
         request_id = self._get_request_id(request)
+        request.state.request_id = request_id
 
         if self._should_skip(request):
-            return await call_next(request)
+            response = await call_next(request)
+            response.headers.setdefault("X-Request-ID", request_id)
+            return response
 
         self.logger.info(
             "request_started",
@@ -76,6 +79,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                     else None,
                 },
             )
+            response.headers.setdefault("X-Request-ID", request_id)
             return response
         except Exception as exc:
             duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
@@ -122,7 +126,11 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         for key, value in items:
             if not isinstance(value, str):
                 value = str(value)
-            result[key.lower()] = value
+            lowered = key.lower()
+            if lowered in {"authorization", "cookie", "set-cookie", "x-api-key"}:
+                result[lowered] = "[redacted]"
+            else:
+                result[lowered] = value
         return result
 
 

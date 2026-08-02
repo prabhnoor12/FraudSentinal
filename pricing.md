@@ -27,15 +27,15 @@ This backend is not just a basic scoring endpoint. It already includes:
 - Audit logging and audit export endpoints
 - JWT auth, refresh/logout, password reset, and MFA
 - Tenant isolation by organisation
-- Rate limiting, metrics, and Redis-backed performance improvements
+- Rate limiting, metrics, and request tracing
 
 That means you can price it as a `fraud decisioning API`, not as a generic internal backend.
 
-At the same time, the product still looks like an `early commercial / strong MVP` rather than a fully mature enterprise platform, because:
+At the same time, the product still looks like an `early commercial` platform rather than a fully mature enterprise platform, because:
 
 - ML scoring exists as a foundation but still needs calibration before broad rollout
 - External observability and alerting are not yet fully productized
-- Formal managed-service operations, onboarding, and SLA processes are not clearly packaged yet
+- Formal managed-service operations, onboarding, and SLA processes are not yet clearly packaged
 
 Because of that, the right move is `mid-market pricing`, not bargain-basement pricing and not top-of-market enterprise pricing.
 
@@ -114,7 +114,7 @@ Because of that, the right move is `mid-market pricing`, not bargain-basement pr
 
 **Includes everything in Growth, plus:**
 
-- Redis-backed shared caching for higher throughput deployments
+- Shared caching and throughput tuning for higher-volume deployments
 - Advanced rollout support for production traffic
 - Access to hybrid scoring enablement when you are ready to validate it
 - Priority support

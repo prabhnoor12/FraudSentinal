@@ -29,7 +29,7 @@ def _email(prefix: str) -> str:
 
 def _register(client, *, email: str, password: str) -> None:
     response = client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={
             "email": email,
             "password": password,
@@ -44,7 +44,7 @@ def test_password_reset_request_hides_token_outside_testing(client, monkeypatch)
     _register(client, email=email, password="StrongPass123!")
 
     monkeypatch.setenv("TESTING", "0")
-    response = client.post("/auth/password-reset/request", json={"email": email})
+    response = client.post("/api/v1/auth/password-reset/request", json={"email": email})
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json() == {
@@ -57,7 +57,7 @@ def test_auth_tokens_are_persisted_as_fingerprints(client, db):
     password = "StrongPass123!"
     _register(client, email=email, password=password)
 
-    login = client.post("/auth/login", json={"email": email, "password": password})
+    login = client.post("/api/v1/auth/login", json={"email": email, "password": password})
     assert login.status_code == status.HTTP_200_OK
     token_payload = login.json()
     access_token = token_payload["access_token"]
@@ -68,7 +68,7 @@ def test_auth_tokens_are_persisted_as_fingerprints(client, db):
     assert stored_refresh.token == fingerprint_token(refresh_token)
     assert stored_refresh.token != refresh_token
 
-    reset = client.post("/auth/password-reset/request", json={"email": email})
+    reset = client.post("/api/v1/auth/password-reset/request", json={"email": email})
     assert reset.status_code == status.HTTP_200_OK
     reset_token = reset.json()["reset_token"]
 
@@ -78,7 +78,7 @@ def test_auth_tokens_are_persisted_as_fingerprints(client, db):
     assert stored_reset.token != reset_token
 
     logout = client.post(
-        "/auth/logout",
+        "/api/v1/auth/logout",
         json={"refresh_token": refresh_token},
         headers={"Authorization": f"Bearer {access_token}"},
     )
@@ -127,7 +127,7 @@ def test_request_client_ip_only_trusts_forwarded_headers_from_known_proxies(
 
 
 def test_security_headers_are_applied(client):
-    response = client.get("/health")
+    response = client.get("/api/v1/health")
 
     assert response.status_code == status.HTTP_200_OK
     assert "Content-Security-Policy" in response.headers
@@ -235,14 +235,14 @@ def test_rate_limit_middleware_uses_endpoint_specific_overrides():
         window_seconds=60,
         endpoint_overrides=(
             RateLimitOverride(
-                path="/check-fraud",
+                path="/api/v1/check-fraud",
                 calls=30,
                 window_seconds=60,
                 block_duration_seconds=180,
             ),
         ),
     )
-    request = SimpleNamespace(url=SimpleNamespace(path="/check-fraud"))
+    request = SimpleNamespace(url=SimpleNamespace(path="/api/v1/check-fraud"))
 
     override = middleware._resolve_limit_config(request)
     assert override.calls == 30
@@ -254,26 +254,26 @@ def test_auth_security_events_are_audited(client, db):
     password = "StrongPass123!"
     _register(client, email=email, password=password)
 
-    login = client.post("/auth/login", json={"email": email, "password": password})
+    login = client.post("/api/v1/auth/login", json={"email": email, "password": password})
     assert login.status_code == status.HTTP_200_OK
     access_token = login.json()["access_token"]
     refresh_token = login.json()["refresh_token"]
 
-    reset_request = client.post("/auth/password-reset/request", json={"email": email})
+    reset_request = client.post("/api/v1/auth/password-reset/request", json={"email": email})
     assert reset_request.status_code == status.HTTP_200_OK
     reset_token = reset_request.json()["reset_token"]
 
     reset_confirm = client.post(
-        "/auth/password-reset/confirm",
+        "/api/v1/auth/password-reset/confirm",
         json={"token": reset_token, "new_password": "NewStrongPass123!"},
     )
     assert reset_confirm.status_code == status.HTTP_200_OK
 
-    refresh = client.post("/auth/refresh", json={"refresh_token": refresh_token})
+    refresh = client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token})
     assert refresh.status_code == status.HTTP_200_OK
 
     logout = client.post(
-        "/auth/logout",
+        "/api/v1/auth/logout",
         json={"refresh_token": refresh.json()["refresh_token"]},
         headers={"Authorization": f"Bearer {refresh.json()['access_token']}"},
     )
@@ -291,22 +291,22 @@ def test_mfa_lifecycle_events_are_audited(client, db):
     password = "StrongPass123!"
     _register(client, email=email, password=password)
 
-    login = client.post("/auth/login", json={"email": email, "password": password})
+    login = client.post("/api/v1/auth/login", json={"email": email, "password": password})
     assert login.status_code == status.HTTP_200_OK
     token = login.json()["access_token"]
 
-    setup = client.post("/mfa/setup", headers={"Authorization": f"Bearer {token}"})
+    setup = client.post("/api/v1/mfa/setup", headers={"Authorization": f"Bearer {token}"})
     assert setup.status_code == status.HTTP_200_OK
     secret = setup.json()["secret"]
 
     verify = client.post(
-        "/mfa/verify",
+        "/api/v1/mfa/verify",
         json={"secret": secret, "code": pyotp.TOTP(secret).now()},
         headers={"Authorization": f"Bearer {token}"},
     )
     assert verify.status_code == status.HTTP_200_OK
 
-    disable = client.post("/mfa/disable", headers={"Authorization": f"Bearer {token}"})
+    disable = client.post("/api/v1/mfa/disable", headers={"Authorization": f"Bearer {token}"})
     assert disable.status_code == status.HTTP_200_OK
 
     actions = [log.action for log in db.query(AuditLog).all()]

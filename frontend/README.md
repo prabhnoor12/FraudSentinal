@@ -1,59 +1,109 @@
-# FraudsentinelFrontend
+# FraudSentinal Frontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.19.
+Angular 21 frontend for the FraudSentinal fraud detection and operations platform.
 
-## Development server
+## What This App Does
 
-To start a local development server, run:
+FraudSentinal helps teams:
 
-```bash
-ng serve
+- score transactions in real time
+- review risky decisions
+- manage fraud rules
+- inspect audit logs
+- monitor usage and billing
+- keep tenant-scoped data separated correctly
+
+The frontend talks to the backend REST API under `/api/v1`.
+
+## How New Users Should Learn The Product
+
+1. Start at the landing page to understand the platform at a glance.
+2. Open the docs page to learn the workflow and integration rules.
+3. Sign up or sign in and land on the dashboard.
+4. Use review cases, fraud rules, audit, and billing to understand the core loops.
+5. Keep the backend request ID and idempotency rules in mind while integrating.
+
+## Public Entry Points
+
+- Landing page: `/`
+- Sign in: `/login/sign-in`
+- Sign up: `/login/sign-up`
+- App dashboard: `/dashboard`
+- Docs: `/docs`
+
+## How The Frontend Is Structured
+
+- `src/web/api.ts` is the shared API client.
+- `src/web/` contains the feature pages.
+- `src/web/web-layout.ts` is the authenticated shell used after sign-in.
+- `src/app/app.routes.ts` controls public, auth, and app routes.
+- `src/styles.scss` defines the shared UI system and responsive layout.
+
+## API Integration
+
+By default, the frontend calls:
+
+```text
+http://localhost:8000/api/v1
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+You can override the backend location by setting the HTML meta tag:
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
+```html
+<meta name="fraudsentinel-api-base-url" content="https://your-backend.example.com/api/v1" />
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+The client uses:
+
+- bearer tokens for authenticated user flows
+- refresh tokens for silent re-authentication
+- `Idempotency-Key` on mutating calls where retry safety matters
+
+## Key Concepts
+
+- Tenant: the organisation boundary used for nearly every read and write.
+- Decision: the fraud outcome produced by scoring a transaction.
+- Review case: an analyst workflow item created when a decision needs human review.
+- Fraud rule: a configurable scoring rule that contributes to the decision outcome.
+- Request ID: a trace identifier returned by the backend for support and debugging.
+
+## Running Locally
 
 ```bash
-ng generate --help
+npm install
+npm start
 ```
 
-## Building
+Then open:
 
-To build the project run:
+```text
+http://localhost:4200
+```
+
+## Build And Test
 
 ```bash
-ng build
+npm run build
+npm test
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+If you need the SSR build output:
 
 ```bash
-ng test
+npm run build
+npm run serve:ssr:fraudsentinel-frontend
 ```
 
-## Running end-to-end tests
+## Design Notes
 
-For end-to-end (e2e) testing, run:
+- The landing page is public and explains the platform clearly for new users.
+- The docs page is public and summarizes purpose, architecture, and integration steps.
+- Authenticated pages are protected by the route guard.
+- The app keeps a strong `/api/v1` contract so frontend and backend stay aligned.
 
-```bash
-ng e2e
-```
+## For Contributors
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- Keep new routes aligned with the `/api/v1` backend contract.
+- Prefer the shared API client in `src/web/api.ts` instead of calling `fetch` directly.
+- Preserve tenant scoping in UI flows so users cannot cross organisations accidentally.
+- Keep the docs page current when adding new workflows or changing core semantics.

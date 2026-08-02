@@ -32,6 +32,7 @@ X-API-Key: fs_live_xxxxxxxxxxxxx
 - JWTs and API keys both enforce organisation isolation.
 - API keys must include the scopes required by each route.
 - Interactive user routes, such as service-account management, require JWT authentication.
+- Refresh-token reuse is treated as a security event and revokes the user's token family.
 
 ## Core Headers
 
@@ -196,6 +197,18 @@ Supported query params:
 - `sort_by`
 - `sort_dir`
 
+### GET /api/v1/review-cases/queue/my
+
+List open review cases in the current organisation queue.
+
+### GET /api/v1/review-cases/stats
+
+Return review-case counts, queue age information, and recent open cases.
+
+### POST /api/v1/review-cases/{case_id}/manual-override
+
+Apply an analyst override with an explicit reason and update the linked decision snapshot.
+
 ### GET /api/v1/decisions
 
 List fraud decisions for the tenant.
@@ -337,6 +350,16 @@ Supported query params:
 - `offset`
 - `sort_by`
 - `sort_dir`
+
+## Metrics
+
+### GET /api/v1/metrics
+
+Return the current operational and fraud-detection metrics snapshot.
+
+### GET /api/v1/metrics/prometheus
+
+Return the Prometheus text exposition for scraping.
 
 ## Idempotency
 

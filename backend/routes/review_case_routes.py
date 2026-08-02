@@ -6,10 +6,12 @@ from database import get_db
 from schemas.audit_schemas import AuditContext
 from schemas.review_case_schemas import (
     ReviewCaseListResponse,
+    ReviewCaseManualOverride,
     ReviewCaseOut,
     ReviewCaseReopen,
     ReviewCaseResolve,
     ReviewCaseUpdate,
+    ReviewCaseStatsOut,
 )
 from services import auth_service, review_case_service
 from utils.pagination_utils import (
@@ -72,6 +74,40 @@ def list_review_cases(
     )
 
 
+@router.get("/queue/my", response_model=ReviewCaseListResponse)
+def list_my_queue(
+    request: Request,
+    offset: int = 0,
+    limit: int = 100,
+    org_id: int = Depends(get_current_org_id),
+    db: Session = Depends(get_db),
+):
+    """List open review cases for the current organisation (my queue)."""
+    normalized_offset = normalize_offset(offset)
+    normalized_limit = normalize_limit(limit, default=100, maximum=200)
+    items, total = review_case_service.list_my_queue_service(
+        db,
+        organisation_id=org_id,
+        offset=normalized_offset,
+        limit=normalized_limit,
+    )
+    return build_paginated_payload(
+        request=request,
+        items=items,
+        total=total,
+        limit=normalized_limit,
+        offset=normalized_offset,
+    )
+
+
+@router.get("/stats", response_model=ReviewCaseStatsOut)
+def review_case_stats(
+    org_id: int = Depends(get_current_org_id),
+    db: Session = Depends(get_db),
+):
+    return review_case_service.get_review_case_stats_service(db, org_id)
+
+
 @router.get("/{case_id}", response_model=ReviewCaseOut)
 def get_review_case(
     case_id: int,
@@ -111,32 +147,6 @@ def update_review_case(
     )
 
 
-@router.get("/queue/my", response_model=ReviewCaseListResponse)
-def list_my_queue(
-    request: Request,
-    offset: int = 0,
-    limit: int = 100,
-    org_id: int = Depends(get_current_org_id),
-    db: Session = Depends(get_db),
-):
-    """List open review cases for the current organisation (my queue)."""
-    normalized_offset = normalize_offset(offset)
-    normalized_limit = normalize_limit(limit, default=100, maximum=200)
-    items, total = review_case_service.list_my_queue_service(
-        db,
-        organisation_id=org_id,
-        offset=normalized_offset,
-        limit=normalized_limit,
-    )
-    return build_paginated_payload(
-        request=request,
-        items=items,
-        total=total,
-        limit=normalized_limit,
-        offset=normalized_offset,
-    )
-
-
 @router.post("/{case_id}/resolve", response_model=ReviewCaseOut)
 def resolve_review_case(
     case_id: int,
@@ -161,5 +171,19 @@ def reopen_review_case(
 ):
     """Explicitly reopen a resolved review case."""
     return review_case_service.reopen_review_case_service(
+        db, case_id, payload, organisation_id=org_id, audit_ctx=audit_ctx
+    )
+
+
+@router.post("/{case_id}/manual-override", response_model=ReviewCaseOut)
+def manual_override_review_case(
+    case_id: int,
+    payload: ReviewCaseManualOverride,
+    org_id: int = Depends(get_current_org_id),
+    audit_ctx: AuditContext = Depends(get_audit_ctx),
+    db: Session = Depends(get_db),
+):
+    """Apply an analyst override with an explicit reason."""
+    return review_case_service.apply_manual_override_service(
         db, case_id, payload, organisation_id=org_id, audit_ctx=audit_ctx
     )

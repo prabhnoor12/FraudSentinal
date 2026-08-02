@@ -1,0 +1,22 @@
+.fs-container { width: min(var(--fs-container), calc(100% - 24px)); margin: 0 auto; }
+.fs-page { display: grid; gap: 20px; }
+.fs-card { background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03)); border: 1px solid rgba(255,255,255,.08); border-radius: 18px; box-shadow: 0 18px 40px rgba(0,0,0,.18); padding: 18px; overflow: hidden; }
+.fs-card-header { margin-bottom: 14px; }
+.fs-card-header h1, .fs-card-header h2, .fs-card-header h3, .fs-card-header p { margin: 0; }
+.fs-card-header p { margin-top: 6px; color: var(--fs-muted); }
+.fs-muted { color: var(--fs-muted); }
+.fs-page-header { display: grid; gap: 8px; padding: 18px 20px; border: 1px solid rgba(255,255,255,.08); border-radius: 20px; background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)); }
+.fs-page-header h1 { font-size: 28px; margin: 0; letter-spacing: -.04em; }
+.fs-eyebrow, .fs-summary-label, .fs-meta-label { color: rgba(255,255,255,.68); text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
+.fs-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.fs-summary-card { padding: 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03); }
+.fs-summary-card strong { display: block; margin-top: 6px; font-size: 17px; }
+.fs-stack, .fs-readiness-list { display: grid; gap: 12px; }
+.fs-alert { padding: 12px 14px; border-radius: 14px; border: 1px solid var(--fs-border); background: rgba(255,255,255,.06); }
+.fs-alert.is-info { border-color: rgba(49,196,141,.35); background: rgba(49,196,141,.12); }
+.fs-readiness-item, .fs-module-card { padding: 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03); }
+.fs-readiness-item strong { display: block; margin-top: 4px; font-size: 13px; color: var(--fs-text); }
+.fs-list-title { font-weight: 700; overflow-wrap: anywhere; }
+.fs-list-meta { margin-top: 5px; color: var(--fs-muted); font-size: 13px; overflow-wrap: anywhere; }
+@media (max-width: 860px) { .fs-summary-grid { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .fs-page-header h1 { font-size: 23px; } .fs-card, .fs-page-header { padding: 16px; } }

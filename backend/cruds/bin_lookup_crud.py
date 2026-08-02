@@ -15,8 +15,11 @@ def get_bin_by_number(db: Session, bin_number: str) -> BINLookup | None:
 
 def get_bin_by_card_number(db: Session, card_number: str) -> BINLookup | None:
     """Extract BIN from full card number and lookup."""
-    # Extract first 6 digits as BIN
-    bin_digits = card_number[:6] if len(card_number) >= 6 else card_number
+    # Normalize to digits first so spaces/hyphens do not break lookup.
+    bin_digits = "".join(ch for ch in card_number if ch.isdigit())
+    if len(bin_digits) < 6:
+        return None
+    bin_digits = bin_digits[:6]
     return get_bin_by_number(db, bin_digits)
 
 

@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import Optional
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class OrganisationSettingsBase(BaseModel):
@@ -9,6 +10,7 @@ class OrganisationSettingsBase(BaseModel):
     timezone: str = "UTC"
     review_threshold: int = 40
     decline_threshold: int = 70
+    threshold_profiles: dict[str, Any] = Field(default_factory=dict)
     enable_billing: bool = True
     enable_usage_tracking: bool = True
     notification_email: Optional[str] = None

@@ -225,13 +225,14 @@ def list_service_accounts(
 ):
     normalized_offset = normalize_offset(offset)
     normalized_limit = normalize_limit(limit, default=100, maximum=200)
+    normalized_sort_dir = normalize_sort_dir(sort_dir)
     items, total = auth_service.list_service_accounts_service(
         db,
         current_user,
         offset=normalized_offset,
         limit=normalized_limit,
         sort_by=sort_by,
-        sort_dir=normalize_sort_dir(sort_dir),
+        sort_dir=normalized_sort_dir,
     )
     return build_paginated_payload(
         request=request,
@@ -278,6 +279,7 @@ def list_service_account_api_keys(
 ):
     normalized_offset = normalize_offset(offset)
     normalized_limit = normalize_limit(limit, default=100, maximum=200)
+    normalized_sort_dir = normalize_sort_dir(sort_dir)
     items, total = auth_service.list_service_account_api_keys_service(
         db,
         current_user,
@@ -285,7 +287,7 @@ def list_service_account_api_keys(
         offset=normalized_offset,
         limit=normalized_limit,
         sort_by=sort_by,
-        sort_dir=normalize_sort_dir(sort_dir),
+        sort_dir=normalized_sort_dir,
     )
     return build_paginated_payload(
         request=request,
@@ -338,13 +340,14 @@ def list_rotation_alerts(
 ):
     normalized_offset = normalize_offset(offset)
     normalized_limit = normalize_limit(limit, default=100, maximum=200)
+    normalized_sort_dir = normalize_sort_dir(sort_dir)
     items, total = auth_service.list_api_key_rotation_alerts_service(
         db,
         current_user,
         offset=normalized_offset,
         limit=normalized_limit,
         sort_by=sort_by,
-        sort_dir=normalize_sort_dir(sort_dir) if sort_by != "rotation_due_at" else sort_dir,
+        sort_dir=normalized_sort_dir if sort_by != "rotation_due_at" else sort_dir,
     )
     return build_paginated_payload(
         request=request,

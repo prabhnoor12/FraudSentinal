@@ -21,6 +21,11 @@ class FraudRuleOperator(str, Enum):
     not_in = "not_in"
     is_missing = "is_missing"
     field_mismatch = "field_mismatch"
+    between = "between"
+    contains = "contains"
+    starts_with = "starts_with"
+    ends_with = "ends_with"
+    regex = "regex"
 
 
 class FraudRuleField(str, Enum):
@@ -45,6 +50,14 @@ class FraudRuleField(str, Enum):
     amount_velocity_24hour = "amount_velocity_24hour"
     unique_ips_1hour = "unique_ips_1hour"
     unique_ips_24hour = "unique_ips_24hour"
+    unique_devices_1hour = "unique_devices_1hour"
+    unique_devices_24hour = "unique_devices_24hour"
+    unique_payment_methods_1hour = "unique_payment_methods_1hour"
+    unique_payment_methods_24hour = "unique_payment_methods_24hour"
+    unique_billing_countries_1hour = "unique_billing_countries_1hour"
+    unique_billing_countries_24hour = "unique_billing_countries_24hour"
+    unique_shipping_countries_1hour = "unique_shipping_countries_1hour"
+    unique_shipping_countries_24hour = "unique_shipping_countries_24hour"
     new_device = "new_device"
     known_devices_count = "known_devices_count"
     device_fingerprint_confidence = "device_fingerprint_confidence"
@@ -72,6 +85,10 @@ class FraudRuleField(str, Enum):
     bin_issuing_country_mismatch = "bin_issuing_country_mismatch"
     high_risk_bin = "high_risk_bin"
     ip_geo_high_risk = "ip_geo_high_risk"
+    ip_geo_confidence = "ip_geo_confidence"
+    bin_confidence = "bin_confidence"
+    ip_geo_lookup_source = "ip_geo_lookup_source"
+    bin_lookup_source = "bin_lookup_source"
 
 
 class FraudRuleBase(BaseModel):
@@ -85,6 +102,11 @@ class FraudRuleBase(BaseModel):
     operator: FraudRuleOperator
     comparison_value: Any = None
     secondary_field_name: FraudRuleField | None = None
+    group_key: str | None = Field(default=None, max_length=100)
+    group_cap: float | None = Field(default=None, ge=0)
+    exclude_rule_codes: list[str] = Field(default_factory=list)
+    exclude_group_keys: list[str] = Field(default_factory=list)
+    rule_version: int = Field(default=1, ge=1)
     enabled: bool = True
     priority: int = Field(default=100, ge=0, le=10000)
 
@@ -104,6 +126,11 @@ class FraudRuleUpdate(BaseModel):
     operator: FraudRuleOperator | None = None
     comparison_value: Any = None
     secondary_field_name: FraudRuleField | None = None
+    group_key: str | None = Field(default=None, max_length=100)
+    group_cap: float | None = Field(default=None, ge=0)
+    exclude_rule_codes: list[str] = Field(default_factory=list)
+    exclude_group_keys: list[str] = Field(default_factory=list)
+    rule_version: int | None = Field(default=None, ge=1)
     enabled: bool | None = None
     priority: int | None = Field(default=None, ge=0, le=10000)
 

@@ -8,7 +8,7 @@ from schemas.api_schemas import PaginatedResponse, StrictSchema
 
 class UsageEventBase(StrictSchema):
     user_id: int
-    organisation_id: int
+    organisation_id: Optional[int] = None
     event_type: str
     units: float = 1.0
     unit_type: str = "request"
@@ -30,7 +30,7 @@ class UsageEventOut(UsageEventBase):
 
 class UsageSummaryBase(StrictSchema):
     user_id: int
-    organisation_id: int
+    organisation_id: Optional[int] = None
     period_start: datetime
     period_end: datetime
     total_units: float = 0.0

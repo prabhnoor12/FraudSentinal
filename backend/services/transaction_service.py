@@ -2,18 +2,16 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from cruds import organisation_crud, transaction_crud, user_crud
+from cruds import transaction_crud
 from schemas.transaction_schemas import TransactionCreate, TransactionOut
 from utils.exception_handling_utils import NotFoundError
+from utils.ownership_utils import require_user_in_organisation
 
 
 def _ensure_transaction_owners_exist(
     db: Session, *, user_id: int, organisation_id: int
 ) -> None:
-    if not user_crud.get_user_by_id(db, user_id):
-        raise NotFoundError("User not found")
-    if not organisation_crud.get_organisation_by_id(db, organisation_id):
-        raise NotFoundError("Organisation not found")
+    require_user_in_organisation(db, user_id=user_id, organisation_id=organisation_id)
 
 
 def normalize_transaction_data(payload: TransactionCreate) -> dict:
@@ -21,6 +19,8 @@ def normalize_transaction_data(payload: TransactionCreate) -> dict:
     data["currency"] = data["currency"].strip().upper()
     data["payment_method"] = data["payment_method"].strip().lower()
     data["channel"] = data["channel"].strip().lower()
+    if data.get("transaction_type"):
+        data["transaction_type"] = data["transaction_type"].strip().lower()
 
     if data.get("customer_email"):
         data["customer_email"] = data["customer_email"].strip().lower()
@@ -66,6 +66,7 @@ def serialize_transaction(transaction) -> TransactionOut:
         currency=transaction.currency,
         payment_method=transaction.payment_method,
         channel=transaction.channel,
+        transaction_type=transaction.transaction_type,
         customer_id=transaction.customer_id,
         customer_email=transaction.customer_email,
         billing_country=transaction.billing_country,

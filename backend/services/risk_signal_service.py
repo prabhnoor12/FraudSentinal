@@ -4,16 +4,23 @@ from sqlalchemy.orm import Session
 
 from cruds import decision_crud, risk_signal_crud, transaction_crud
 from schemas.risk_signal_schemas import RiskSignalCreate
-from utils.exception_handling_utils import NotFoundError
+from utils.exception_handling_utils import NotFoundError, ValidationError
+from utils.ownership_utils import require_decision_in_organisation, require_transaction_in_organisation
 
 
 def _ensure_signal_owners_exist(
     db: Session, *, transaction_id: int, decision_id: int
 ) -> None:
-    if not transaction_crud.get_transaction_by_id(db, transaction_id):
+    transaction = transaction_crud.get_transaction_by_id(db, transaction_id)
+    if not transaction:
         raise NotFoundError("Transaction not found")
-    if not decision_crud.get_decision_by_id(db, decision_id):
+
+    decision = decision_crud.get_decision_by_id(db, decision_id)
+    if not decision:
         raise NotFoundError("Decision not found")
+
+    if decision.transaction_id != transaction.id:
+        raise ValidationError("Decision does not belong to the transaction")
 
 
 def create_risk_signal_service(
@@ -22,6 +29,18 @@ def create_risk_signal_service(
     _ensure_signal_owners_exist(
         db, transaction_id=payload.transaction_id, decision_id=payload.decision_id
     )
+    transaction = require_transaction_in_organisation(
+        db,
+        transaction_id=payload.transaction_id,
+        organisation_id=payload.organisation_id,
+    )
+    require_decision_in_organisation(
+        db,
+        decision_id=payload.decision_id,
+        organisation_id=payload.organisation_id,
+    )
+    if transaction.user_id != payload.user_id:
+        raise ValidationError("Transaction does not belong to the target user")
     return risk_signal_crud.create_risk_signal(
         db, commit=commit, **payload.model_dump()
     )

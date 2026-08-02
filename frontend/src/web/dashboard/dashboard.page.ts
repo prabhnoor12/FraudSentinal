@@ -70,6 +70,7 @@ type RecentEvent = {
       </div>
     </section>
   `,
+  styleUrl: './dashboard.page.scss',
 })
 export class DashboardPage {
   protected readonly loading = signal(true);

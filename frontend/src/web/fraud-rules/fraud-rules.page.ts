@@ -19,6 +19,7 @@ type RuleFilter = 'all' | 'enabled' | 'disabled';
       <div class="fs-dashboard-grid">
         <div class="fs-card">
           <div class="fs-card-header">
+            <span class="fs-eyebrow">Rule authoring</span>
             <h2>Create Rule</h2>
             <p class="fs-muted">Add a rule scoped to the current organisation.</p>
           </div>
@@ -89,7 +90,7 @@ type RuleFilter = 'all' | 'enabled' | 'disabled';
 
             <div class="fs-form-actions">
               <button class="fs-button" type="submit" [disabled]="busy() || form.invalid">
-                @if (busy()) { Creating… } @else { Create rule }
+                @if (busy()) { Creating... } @else { Create rule }
               </button>
             </div>
           </form>
@@ -97,9 +98,12 @@ type RuleFilter = 'all' | 'enabled' | 'disabled';
 
         <div class="fs-card">
           <div class="fs-toolbar">
-            <div class="fs-card-header">
-              <h2>Active Rules</h2>
-              <p class="fs-muted">{{ rules().length }} rule(s)</p>
+            <div class="fs-toolbar-copy">
+              <div class="fs-card-header">
+                <span class="fs-eyebrow">Rule inventory</span>
+                <h2>Active Rules</h2>
+                <p class="fs-muted">{{ rules().length }} rule(s)</p>
+              </div>
             </div>
             <div class="fs-chip-group">
               @for (filter of filters; track filter.value) {
@@ -115,29 +119,68 @@ type RuleFilter = 'all' | 'enabled' | 'disabled';
             </div>
           </div>
 
+          <div class="fs-rule-summary">
+            <div class="fs-summary-card">
+              <span class="fs-summary-label">Current filter</span>
+              <strong>{{ activeFilterLabel() }}</strong>
+            </div>
+            <div class="fs-summary-card">
+              <span class="fs-summary-label">Enabled</span>
+              <strong>{{ enabledRuleCount() }}</strong>
+            </div>
+            <div class="fs-summary-card">
+              <span class="fs-summary-label">Disabled</span>
+              <strong>{{ disabledRuleCount() }}</strong>
+            </div>
+          </div>
+
           @if (listError()) {
             <div class="fs-alert is-error">{{ listError() }}</div>
           }
 
           @if (loading()) {
-            <div class="fs-skeleton">Loading rules…</div>
+            <div class="fs-skeleton">Loading rules...</div>
           } @else if (rules().length === 0) {
-            <div class="fs-muted">No rules found for the selected filter.</div>
+            <div class="fs-empty-state">
+              <strong>No rules found</strong>
+              <p class="fs-muted">There are no fraud rules for the selected filter.</p>
+            </div>
           } @else {
             <div class="fs-stack">
               @for (rule of rules(); track rule.id) {
                 <div class="fs-card fs-card-subtle">
                   <div class="fs-rule-row">
                     <div class="fs-rule-main">
-                      <div class="fs-list-title">{{ rule.name }}</div>
-                      <div class="fs-list-meta">
-                        {{ rule.rule_code }} · {{ rule.field_name }} {{ rule.operator }}
-                        {{ rule.comparison_value }} · weight {{ rule.weight }} · priority {{ rule.priority }}
+                      <div class="fs-rule-topline">
+                        <div>
+                          <div class="fs-list-title">{{ rule.name }}</div>
+                          <div class="fs-list-subtitle">{{ rule.rule_code }}</div>
+                        </div>
+                        <span class="fs-status-pill" [class.is-enabled]="rule.enabled">
+                          {{ rule.enabled ? 'enabled' : 'disabled' }}
+                        </span>
                       </div>
-                      <div class="fs-list-meta">
-                        {{ rule.reason_code }} · {{ rule.enabled ? 'enabled' : 'disabled' }}
+
+                      <div class="fs-rule-meta-grid">
+                        <div>
+                          <span class="fs-meta-label">Condition</span>
+                          <strong>{{ rule.field_name }} {{ rule.operator }} {{ rule.comparison_value }}</strong>
+                        </div>
+                        <div>
+                          <span class="fs-meta-label">Reason</span>
+                          <strong>{{ rule.reason_code }}</strong>
+                        </div>
+                        <div>
+                          <span class="fs-meta-label">Weight</span>
+                          <strong>{{ rule.weight }}</strong>
+                        </div>
+                        <div>
+                          <span class="fs-meta-label">Priority</span>
+                          <strong>{{ rule.priority }}</strong>
+                        </div>
                       </div>
                     </div>
+
                     <div class="fs-inline-actions">
                       <a class="fs-button is-secondary" [routerLink]="['/fraud-rules', rule.id, 'edit']">
                         Edit
@@ -149,7 +192,7 @@ type RuleFilter = 'all' | 'enabled' | 'disabled';
                         [disabled]="toggleBusyId() === rule.id"
                       >
                         @if (toggleBusyId() === rule.id) {
-                          Saving…
+                          Saving...
                         } @else if (rule.enabled) {
                           Disable
                         } @else {
@@ -166,6 +209,7 @@ type RuleFilter = 'all' | 'enabled' | 'disabled';
       </div>
     </section>
   `,
+  styleUrl: './fraud-rules.page.scss',
 })
 export class FraudRulesPage {
   private readonly fb = new FormBuilder();
@@ -204,6 +248,18 @@ export class FraudRulesPage {
 
   constructor() {
     void this.loadRules();
+  }
+
+  protected activeFilterLabel(): string {
+    return this.filters.find((filter) => filter.value === this.activeFilter())?.label ?? 'All';
+  }
+
+  protected enabledRuleCount(): number {
+    return this.rules().filter((rule) => rule.enabled).length;
+  }
+
+  protected disabledRuleCount(): number {
+    return this.rules().filter((rule) => !rule.enabled).length;
   }
 
   async changeFilter(filter: RuleFilter): Promise<void> {

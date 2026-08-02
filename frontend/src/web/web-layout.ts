@@ -12,13 +12,14 @@ import { api, getAccessToken } from './api';
           <a class="fs-brand" routerLink="/dashboard">FraudSentinal</a>
 
           <nav class="fs-nav">
-            <a routerLink="/dashboard" routerLinkActive="is-active">Dashboard</a>
+            <a routerLink="/dashboard" routerLinkActive="is-active">Overview</a>
             <a routerLink="/review-cases" routerLinkActive="is-active">Review Cases</a>
             <a routerLink="/fraud-rules" routerLinkActive="is-active">Fraud Rules</a>
             <a routerLink="/usage" routerLinkActive="is-active">Usage</a>
             <a routerLink="/audit" routerLinkActive="is-active">Audit</a>
             <a routerLink="/billing" routerLinkActive="is-active">Billing</a>
             <a routerLink="/settings" routerLinkActive="is-active">Settings</a>
+            <a routerLink="/docs" routerLinkActive="is-active">Docs</a>
           </nav>
 
           <div class="fs-header-actions">
@@ -40,10 +41,11 @@ import { api, getAccessToken } from './api';
       </main>
 
       <footer class="fs-footer">
-        <div class="fs-container fs-footer-inner">© {{ year() }} FraudSentinal</div>
+        <div class="fs-container fs-footer-inner">&copy; {{ year() }} FraudSentinal</div>
       </footer>
     </div>
   `,
+  styleUrl: './web-layout.scss',
 })
 export class WebLayout {
   private readonly router: Router;

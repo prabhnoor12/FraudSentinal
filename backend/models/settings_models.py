@@ -1,6 +1,6 @@
 from datetime import datetime, UTC
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, JSON, String, Text
 
 from database import Base
 
@@ -24,6 +24,7 @@ class OrganisationSettings(Base):
     # Fraud Engine Thresholds
     review_threshold = Column(Integer, default=40, nullable=False)
     decline_threshold = Column(Integer, default=70, nullable=False)
+    threshold_profiles = Column(JSON, default=dict, nullable=False)
 
     enable_billing = Column(Boolean, default=True, nullable=False)
     enable_usage_tracking = Column(Boolean, default=True, nullable=False)

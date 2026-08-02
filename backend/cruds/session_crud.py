@@ -4,13 +4,13 @@ from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session
 
 from models.session_models import UserSession
-from models.user_models import User
 
 
 def create_session(
     db: Session,
     *,
     user_id: int,
+    organisation_id: int,
     session_token: str,
     ip_address: str | None = None,
     user_agent: str | None = None,
@@ -18,6 +18,7 @@ def create_session(
 ) -> UserSession:
     session = UserSession(
         user_id=user_id,
+        organisation_id=organisation_id,
         session_token=session_token,
         ip_address=ip_address,
         user_agent=user_agent,
@@ -52,9 +53,7 @@ def list_sessions(
 ) -> list[UserSession]:
     query = db.query(UserSession)
     if organisation_id is not None:
-        query = query.join(User, User.id == UserSession.user_id).filter(
-            User.organisation_id == organisation_id
-        )
+        query = query.filter(UserSession.organisation_id == organisation_id)
     if user_id is not None:
         query = query.filter(UserSession.user_id == user_id)
     if status is not None:
@@ -83,9 +82,7 @@ def count_sessions(
 ) -> int:
     query = db.query(func.count(UserSession.id))
     if organisation_id is not None:
-        query = query.join(User, User.id == UserSession.user_id).filter(
-            User.organisation_id == organisation_id
-        )
+        query = query.filter(UserSession.organisation_id == organisation_id)
     if user_id is not None:
         query = query.filter(UserSession.user_id == user_id)
     if status is not None:

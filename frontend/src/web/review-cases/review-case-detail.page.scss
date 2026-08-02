@@ -1,0 +1,38 @@
+.fs-container { width: min(var(--fs-container), calc(100% - 24px)); margin: 0 auto; }
+.fs-page { display: grid; gap: 20px; }
+.fs-muted { color: var(--fs-muted); }
+.fs-card { background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03)); border: 1px solid rgba(255,255,255,.08); border-radius: 18px; box-shadow: 0 18px 40px rgba(0,0,0,.18); padding: 18px; overflow: hidden; }
+.fs-card-subtle { background: rgba(255,255,255,.04); box-shadow: none; }
+.fs-card-header { margin-bottom: 14px; }
+.fs-card-header h1, .fs-card-header h2, .fs-card-header h3, .fs-card-header p { margin: 0; }
+.fs-card-header p { margin-top: 6px; color: var(--fs-muted); }
+.fs-page-header { display: grid; gap: 8px; padding: 18px 20px; border: 1px solid rgba(255,255,255,.08); border-radius: 20px; background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)); }
+.fs-page-header h1 { font-size: 28px; margin: 0; letter-spacing: -.04em; }
+.fs-back-link { display: inline-block; margin-bottom: 8px; color: var(--fs-muted); }
+.fs-eyebrow { color: rgba(255,255,255,.68); text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
+.fs-detail-hero { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; padding: 16px; margin-bottom: 16px; border-radius: 16px; border: 1px solid rgba(255,255,255,.08); background: linear-gradient(180deg, rgba(49,196,141,.08), rgba(255,255,255,.03)); }
+.fs-detail-hero h2 { margin: 6px 0; font-size: 22px; letter-spacing: -.03em; }
+.fs-status-pill { display: inline-flex; align-items: center; justify-content: center; width: fit-content; min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.06); color: var(--fs-text); font-size: 12px; font-weight: 700; text-transform: capitalize; }
+.fs-status-pill.is-open { border-color: rgba(49,196,141,.3); background: rgba(49,196,141,.14); color: #b8f0d8; }
+.fs-detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.fs-stat-card { border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.04); border-radius: 14px; padding: 14px; display: grid; gap: 6px; }
+.fs-stat-label { color: var(--fs-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.fs-detail-sections { display: grid; gap: 14px; margin-top: 16px; }
+.fs-prewrap, .fs-json { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fs-json { color: var(--fs-muted); font-size: 13px; }
+.fs-form { display: grid; gap: 14px; }
+.fs-detail-form { padding: 16px; border-radius: 16px; border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.03); }
+.fs-field { display: grid; gap: 7px; }
+.fs-field span { color: rgba(255,255,255,.78); font-size: 13px; font-weight: 600; }
+.fs-input { width: 100%; box-sizing: border-box; padding: 11px 13px; border-radius: 12px; border: 1px solid rgba(255,255,255,.1); background: rgba(0,0,0,.24); color: var(--fs-text); outline: none; transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease; }
+.fs-input:focus { border-color: rgba(49,196,141,.5); box-shadow: 0 0 0 3px rgba(49,196,141,.12); }
+.fs-form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.fs-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(49,196,141,.28); background: rgba(49,196,141,.14); color: var(--fs-text); cursor: pointer; font-weight: 700; transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
+.fs-button:hover { transform: translateY(-1px); border-color: rgba(49,196,141,.46); box-shadow: 0 14px 28px rgba(0,0,0,.18); }
+.fs-button.is-secondary { border-color: rgba(255,255,255,.1); background: rgba(255,255,255,.06); }
+.fs-button[disabled] { opacity: .6; cursor: not-allowed; }
+.fs-skeleton { color: var(--fs-muted); }
+.fs-alert { padding: 12px 14px; border-radius: 14px; border: 1px solid var(--fs-border); background: rgba(255,255,255,.06); }
+.fs-alert.is-error { border-color: rgba(255,77,103,.35); background: rgba(255,77,103,.12); }
+@media (max-width: 860px) { .fs-detail-hero, .fs-detail-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px) { .fs-page-header h1 { font-size: 23px; } .fs-card, .fs-page-header { padding: 16px; } .fs-detail-hero, .fs-detail-grid { grid-template-columns: 1fr; } .fs-form-actions { align-items: stretch; } .fs-button, .fs-status-pill { width: 100%; } }

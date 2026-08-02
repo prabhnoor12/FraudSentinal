@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 from threading import RLock
 
@@ -19,6 +20,9 @@ from services.audit_service import AuditService
 from utils.exception_handling_utils import ConflictError, NotFoundError, ValidationError
 
 
+MAX_REGEX_PATTERN_LENGTH = 256
+
+
 NUMERIC_FIELDS = {
     FraudRuleField.amount,
     FraudRuleField.account_age_days,
@@ -30,8 +34,18 @@ NUMERIC_FIELDS = {
     FraudRuleField.amount_velocity_24hour,
     FraudRuleField.unique_ips_1hour,
     FraudRuleField.unique_ips_24hour,
+    FraudRuleField.unique_devices_1hour,
+    FraudRuleField.unique_devices_24hour,
+    FraudRuleField.unique_payment_methods_1hour,
+    FraudRuleField.unique_payment_methods_24hour,
+    FraudRuleField.unique_billing_countries_1hour,
+    FraudRuleField.unique_billing_countries_24hour,
+    FraudRuleField.unique_shipping_countries_1hour,
+    FraudRuleField.unique_shipping_countries_24hour,
     FraudRuleField.known_devices_count,
     FraudRuleField.device_fingerprint_confidence,
+    FraudRuleField.ip_geo_confidence,
+    FraudRuleField.bin_confidence,
 }
 
 STRING_FIELDS = {
@@ -45,6 +59,22 @@ STRING_FIELDS = {
     FraudRuleField.ip_address,
     FraudRuleField.device_id,
     FraudRuleField.external_transaction_id,
+    FraudRuleField.ip_country_code,
+    FraudRuleField.ip_region,
+    FraudRuleField.ip_city,
+    FraudRuleField.ip_isp,
+    FraudRuleField.card_brand,
+    FraudRuleField.card_type,
+    FraudRuleField.card_category,
+    FraudRuleField.issuing_bank,
+    FraudRuleField.issuing_country_code,
+    FraudRuleField.ip_geo_lookup_source,
+    FraudRuleField.bin_lookup_source,
+}
+
+TEXT_FIELDS = STRING_FIELDS | {
+    FraudRuleField.ip_geo_lookup_source,
+    FraudRuleField.bin_lookup_source,
 }
 
 DEFAULT_FRAUD_RULES: list[dict] = [
@@ -57,6 +87,8 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "field_name": FraudRuleField.amount,
         "operator": FraudRuleOperator.gte,
         "comparison_value": 500,
+        "group_key": "amount_ladder",
+        "group_cap": 65,
         "priority": 10,
     },
     {
@@ -68,6 +100,8 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "field_name": FraudRuleField.amount,
         "operator": FraudRuleOperator.gte,
         "comparison_value": 1000,
+        "group_key": "amount_ladder",
+        "group_cap": 65,
         "priority": 20,
     },
     {
@@ -79,6 +113,8 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "field_name": FraudRuleField.amount,
         "operator": FraudRuleOperator.gte,
         "comparison_value": 2000,
+        "group_key": "amount_ladder",
+        "group_cap": 65,
         "priority": 30,
     },
     {
@@ -90,6 +126,8 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "field_name": FraudRuleField.transactions_last_24h,
         "operator": FraudRuleOperator.gte,
         "comparison_value": 3,
+        "group_key": "velocity_24h_ladder",
+        "group_cap": 48,
         "priority": 40,
     },
     {
@@ -101,6 +139,8 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "field_name": FraudRuleField.tx_count_1hour,
         "operator": FraudRuleOperator.gte,
         "comparison_value": 3,
+        "group_key": "velocity_1h_ladder",
+        "group_cap": 12,
         "priority": 45,
     },
     {
@@ -112,6 +152,8 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "field_name": FraudRuleField.transactions_last_24h,
         "operator": FraudRuleOperator.gte,
         "comparison_value": 5,
+        "group_key": "velocity_24h_ladder",
+        "group_cap": 48,
         "priority": 50,
     },
     {
@@ -123,6 +165,8 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "field_name": FraudRuleField.transactions_last_24h,
         "operator": FraudRuleOperator.gte,
         "comparison_value": 10,
+        "group_key": "velocity_24h_ladder",
+        "group_cap": 48,
         "priority": 60,
     },
     {
@@ -134,6 +178,8 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "field_name": FraudRuleField.unique_ips_24hour,
         "operator": FraudRuleOperator.gte,
         "comparison_value": 3,
+        "group_key": "velocity_24h_ladder",
+        "group_cap": 48,
         "priority": 65,
     },
     {
@@ -145,6 +191,8 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "field_name": FraudRuleField.amount_velocity_24hour,
         "operator": FraudRuleOperator.gte,
         "comparison_value": 1000,
+        "group_key": "velocity_24h_ladder",
+        "group_cap": 48,
         "priority": 66,
     },
     {
@@ -156,6 +204,8 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "field_name": FraudRuleField.failed_attempts_last_24h,
         "operator": FraudRuleOperator.gte,
         "comparison_value": 1,
+        "group_key": "failed_attempts_ladder",
+        "group_cap": 48,
         "priority": 70,
     },
     {
@@ -167,6 +217,8 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "field_name": FraudRuleField.failed_attempts_last_24h,
         "operator": FraudRuleOperator.gte,
         "comparison_value": 2,
+        "group_key": "failed_attempts_ladder",
+        "group_cap": 48,
         "priority": 80,
     },
     {
@@ -178,6 +230,8 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "field_name": FraudRuleField.failed_attempts_last_24h,
         "operator": FraudRuleOperator.gte,
         "comparison_value": 5,
+        "group_key": "failed_attempts_ladder",
+        "group_cap": 48,
         "priority": 90,
     },
     {
@@ -189,6 +243,8 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "field_name": FraudRuleField.account_age_days,
         "operator": FraudRuleOperator.lt,
         "comparison_value": 30,
+        "group_key": "new_account_ladder",
+        "group_cap": 48,
         "priority": 100,
     },
     {
@@ -200,6 +256,8 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "field_name": FraudRuleField.account_age_days,
         "operator": FraudRuleOperator.lt,
         "comparison_value": 14,
+        "group_key": "new_account_ladder",
+        "group_cap": 48,
         "priority": 110,
     },
     {
@@ -211,6 +269,8 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "field_name": FraudRuleField.account_age_days,
         "operator": FraudRuleOperator.lt,
         "comparison_value": 3,
+        "group_key": "new_account_ladder",
+        "group_cap": 48,
         "priority": 120,
     },
     {
@@ -222,6 +282,8 @@ DEFAULT_FRAUD_RULES: list[dict] = [
         "field_name": FraudRuleField.new_device,
         "operator": FraudRuleOperator.eq,
         "comparison_value": True,
+        "group_key": "device_identity",
+        "group_cap": 25,
         "priority": 125,
     },
     {
@@ -336,24 +398,96 @@ def _normalize_comparison_value(field_name: FraudRuleField, comparison_value):
     if comparison_value is None:
         return None
 
-    if field_name == FraudRuleField.currency and isinstance(comparison_value, str):
-        return comparison_value.strip().upper()
-    if field_name in {
-        FraudRuleField.billing_country,
-        FraudRuleField.shipping_country,
-    } and isinstance(comparison_value, str):
-        return comparison_value.strip().upper()
-    if field_name in {
-        FraudRuleField.payment_method,
-        FraudRuleField.channel,
-        FraudRuleField.customer_email,
-    } and isinstance(comparison_value, str):
-        return comparison_value.strip().lower()
-    if isinstance(comparison_value, list):
+    if isinstance(comparison_value, (list, tuple, set)):
         return [
-            _normalize_comparison_value(field_name, value) for value in comparison_value
+            _normalize_comparison_value(field_name, value)
+            for value in list(comparison_value)
         ]
+
+    if isinstance(comparison_value, dict):
+        normalized = dict(comparison_value)
+        if "min" in normalized:
+            normalized["min"] = _normalize_comparison_value(field_name, normalized["min"])
+        if "max" in normalized:
+            normalized["max"] = _normalize_comparison_value(field_name, normalized["max"])
+        return normalized
+
+    if isinstance(comparison_value, str):
+        if field_name == FraudRuleField.currency:
+            return comparison_value.strip().upper()
+        if field_name in {
+            FraudRuleField.billing_country,
+            FraudRuleField.shipping_country,
+            FraudRuleField.ip_country_code,
+            FraudRuleField.issuing_country_code,
+        }:
+            return comparison_value.strip().upper()
+        if field_name in {
+            FraudRuleField.payment_method,
+            FraudRuleField.channel,
+            FraudRuleField.customer_email,
+            FraudRuleField.customer_id,
+            FraudRuleField.ip_address,
+            FraudRuleField.device_id,
+            FraudRuleField.external_transaction_id,
+            FraudRuleField.ip_region,
+            FraudRuleField.ip_city,
+            FraudRuleField.ip_isp,
+            FraudRuleField.card_brand,
+            FraudRuleField.card_type,
+            FraudRuleField.card_category,
+            FraudRuleField.issuing_bank,
+            FraudRuleField.ip_geo_lookup_source,
+            FraudRuleField.bin_lookup_source,
+        }:
+            return comparison_value.strip().lower()
     return comparison_value
+
+
+def _normalize_string_list(values) -> list[str]:
+    if values is None:
+        return []
+    if not isinstance(values, list):
+        raise ValidationError("List fields must be arrays of strings")
+    normalized: list[str] = []
+    for value in values:
+        if not isinstance(value, str) or not value.strip():
+            raise ValidationError("List fields must contain non-empty strings")
+        normalized.append(value.strip().lower())
+    return list(dict.fromkeys(normalized))
+
+
+def _is_text_rule_field(field_name: FraudRuleField | None) -> bool:
+    return field_name in TEXT_FIELDS if field_name is not None else False
+
+
+def _is_numeric_range_value(value) -> bool:
+    return isinstance(value, (int, float))
+
+
+def _as_regex_pattern(value) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValidationError("Regex operators require a non-empty string pattern")
+    if len(value) > MAX_REGEX_PATTERN_LENGTH:
+        raise ValidationError("Regex operators require a pattern of 256 characters or fewer")
+    try:
+        re.compile(value)
+    except re.error as exc:
+        raise ValidationError(
+            "Regex operators require a valid regular expression pattern"
+        ) from exc
+    return value
+
+
+def _validate_between_value(comparison_value):
+    if not isinstance(comparison_value, (list, tuple)) or len(comparison_value) != 2:
+        raise ValidationError("between operators require exactly two comparison values")
+    low, high = comparison_value
+    if not _is_numeric_range_value(low) or not _is_numeric_range_value(high):
+        raise ValidationError("between operators require numeric bounds")
+    if float(low) > float(high):
+        raise ValidationError("between operators require min to be less than max")
+    return [low, high]
 
 
 def _validate_rule_data(data: dict) -> dict:
@@ -379,6 +513,16 @@ def _validate_rule_data(data: dict) -> dict:
 
     if "rule_code" in data and data["rule_code"] is not None:
         data["rule_code"] = _normalize_rule_code(data["rule_code"])
+    if "group_key" in data and data["group_key"] is not None:
+        data["group_key"] = str(data["group_key"]).strip().lower()
+    if "exclude_rule_codes" in data:
+        data["exclude_rule_codes"] = _normalize_string_list(
+            data.get("exclude_rule_codes")
+        )
+    if "exclude_group_keys" in data:
+        data["exclude_group_keys"] = _normalize_string_list(
+            data.get("exclude_group_keys")
+        )
 
     if field_name is not None and comparison_value is not None:
         data["comparison_value"] = _normalize_comparison_value(
@@ -400,18 +544,37 @@ def _validate_rule_data(data: dict) -> dict:
                 "Numeric comparison operators require a numeric comparison value"
             )
 
+    if operator == FraudRuleOperator.between:
+        if field_name not in NUMERIC_FIELDS:
+            raise ValidationError("between operators require a numeric field")
+        data["comparison_value"] = _validate_between_value(data.get("comparison_value"))
+
     if operator in {FraudRuleOperator.eq, FraudRuleOperator.neq}:
         if data.get("comparison_value") is None:
             raise ValidationError("Equality operators require a comparison value")
 
     if operator in {FraudRuleOperator.in_list, FraudRuleOperator.not_in}:
-        if (
-            not isinstance(data.get("comparison_value"), list)
-            or not data["comparison_value"]
-        ):
+        if not isinstance(data.get("comparison_value"), list) or not data["comparison_value"]:
             raise ValidationError(
                 "List operators require a non-empty comparison value list"
             )
+
+    if operator in {
+        FraudRuleOperator.contains,
+        FraudRuleOperator.starts_with,
+        FraudRuleOperator.ends_with,
+    }:
+        if not _is_text_rule_field(field_name):
+            raise ValidationError("Text operators require a comparable text field")
+        if not isinstance(data.get("comparison_value"), str) or not data["comparison_value"].strip():
+            raise ValidationError(
+                "Text operators require a non-empty string comparison value"
+            )
+
+    if operator == FraudRuleOperator.regex:
+        if not _is_text_rule_field(field_name):
+            raise ValidationError("Regex operators require a comparable text field")
+        data["comparison_value"] = _as_regex_pattern(data.get("comparison_value"))
 
     if (
         operator == FraudRuleOperator.is_missing
@@ -434,6 +597,13 @@ def _validate_rule_data(data: dict) -> dict:
             "The field_mismatch operator is only supported for comparable string fields"
         )
 
+    if data.get("group_cap") is not None and not isinstance(
+        data.get("group_cap"), (int, float)
+    ):
+        raise ValidationError("group_cap must be numeric")
+    if data.get("rule_version") is not None and int(data["rule_version"]) < 1:
+        raise ValidationError("rule_version must be greater than zero")
+
     return data
 
 
@@ -455,6 +625,11 @@ def _rule_to_dict(rule: FraudRule) -> dict:
         "operator": rule.operator,
         "comparison_value": rule.comparison_value,
         "secondary_field_name": rule.secondary_field_name,
+        "group_key": rule.group_key,
+        "group_cap": rule.group_cap,
+        "exclude_rule_codes": rule.exclude_rule_codes or [],
+        "exclude_group_keys": rule.exclude_group_keys or [],
+        "rule_version": rule.rule_version,
         "enabled": rule.enabled,
         "priority": rule.priority,
     }
@@ -465,6 +640,7 @@ def create_fraud_rule_service(
 ):
     _ensure_organisation_exists(db, payload.organisation_id)
     validated = _validate_rule_data(payload.model_dump())
+    validated.setdefault("rule_version", 1)
 
     existing = fraud_rule_crud.get_fraud_rule_by_code(
         db,
@@ -605,10 +781,19 @@ def update_fraud_rule_service(
         "operator": merged_operator,
         "secondary_field_name": merged_secondary,
         "comparison_value": merged_comparison,
+        "group_key": validated.get("group_key", fraud_rule.group_key),
+        "group_cap": validated.get("group_cap", fraud_rule.group_cap),
+        "exclude_rule_codes": validated.get(
+            "exclude_rule_codes", fraud_rule.exclude_rule_codes or []
+        ),
+        "exclude_group_keys": validated.get(
+            "exclude_group_keys", fraud_rule.exclude_group_keys or []
+        ),
     }
 
     _validate_rule_data(merged_data)
 
+    validated["rule_version"] = fraud_rule.rule_version + 1
     updated_rule = fraud_rule_crud.update_fraud_rule(db, fraud_rule, **validated)
     if previous_organisation_id is None or updated_rule.organisation_id is None:
         invalidate_effective_rule_cache()

@@ -1,6 +1,17 @@
 from datetime import datetime, UTC
 
-from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Index, Integer, String
+from sqlalchemy import (
+    JSON,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 
 from database import Base
 
@@ -11,6 +22,12 @@ class Transaction(Base):
     __tablename__ = "transactions"
     __table_args__ = (
         Index("idx_transactions_customer_time", "customer_id", "created_at"),
+        UniqueConstraint("id", "organisation_id", name="uq_transactions_id_organisation"),
+        ForeignKeyConstraint(
+            ["user_id", "organisation_id"],
+            ["users.id", "users.organisation_id"],
+            name="fk_transactions_user_org",
+        ),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -23,6 +40,7 @@ class Transaction(Base):
     currency = Column(String(3), nullable=False, index=True)
     payment_method = Column(String(50), nullable=False, index=True)
     channel = Column(String(50), default="api", nullable=False, index=True)
+    transaction_type = Column(String(50), nullable=True, index=True)
     customer_id = Column(String(100), nullable=True, index=True)
     customer_email = Column(String(255), nullable=True, index=True)
     billing_country = Column(String(2), nullable=True)

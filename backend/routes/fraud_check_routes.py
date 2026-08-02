@@ -1,5 +1,4 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
-import time
 from sqlalchemy.orm import Session
 
 from auth_dependencies import (
@@ -55,7 +54,6 @@ def check_fraud(
     audit_ctx: AuditContext = Depends(get_audit_ctx),
     db: Session = Depends(get_db),
 ):
-    started_at = time.perf_counter()
     # Enforce org_id from token
     payload.organisation_id = org_id
     payload.metadata = {
@@ -71,7 +69,15 @@ def check_fraud(
     fraud_metrics_service.fraud_metrics.record_check(
         decision=response.decision.value,
         risk_score=response.risk_score,
-        duration_ms=round((time.perf_counter() - started_at) * 1000, 2),
+        duration_ms=response.processing_time_ms,
+        rule_score=response.rule_score,
+        ml_score=response.ml_score,
+        ml_enabled=response.model_version is not None,
+        degraded=bool(response.degradation_reasons),
+        matched_rules=len(response.matched_rule_codes),
+        matched_rule_codes=response.matched_rule_codes,
+        reason_codes=[reason.value for reason in response.reason_codes],
+        threshold_source=response.thresholds.get("source"),
     )
     background_tasks.add_task(
         background_task_service.log_fraud_check_completed,

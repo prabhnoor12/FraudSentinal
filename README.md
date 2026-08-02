@@ -30,6 +30,7 @@ FraudSentinal exposes a versioned public API for:
 
 - Mutating calls use `Idempotency-Key`
 - Responses include `X-Request-ID`
+- Refresh-token reuse is detected and treated as a security event
 - Collection endpoints return:
 
 ```json
@@ -84,9 +85,13 @@ curl -X POST http://localhost:8000/api/v1/check-fraud \
 - `POST /api/v1/check-fraud`
 - `GET /api/v1/transactions`
 - `GET /api/v1/review-cases`
+- `GET /api/v1/review-cases/queue/my`
+- `GET /api/v1/review-cases/stats`
+- `POST /api/v1/review-cases/{case_id}/manual-override`
 - `GET /api/v1/usage/events`
 - `GET /api/v1/billing/records`
 - `GET /api/v1/audit`
+- `GET /api/v1/metrics`
 - `GET /api/v1/enrichment/ip-geolocation/list`
 
 ## Security Highlights

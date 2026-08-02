@@ -136,6 +136,8 @@ Collection endpoints use a shared paginated response envelope:
 - `/api/v1/risk-signals`
 - `/api/v1/review-cases`
 - `/api/v1/review-cases/queue/my`
+- `/api/v1/review-cases/stats`
+- `/api/v1/review-cases/{case_id}/manual-override`
 - `/api/v1/fraud-rules`
 - `/api/v1/audit`
 - `/api/v1/usage/events`
@@ -151,6 +153,12 @@ Collection endpoints use a shared paginated response envelope:
 - `/api/v1/organisations`
 - `/api/v1/enrichment/ip-geolocation/list`
 - `/api/v1/enrichment/bin-lookup/list`
+
+## Operational Endpoints
+
+- `/api/v1/health`
+- `/api/v1/metrics`
+- `/api/v1/metrics/prometheus`
 
 ## Idempotency
 
@@ -186,3 +194,8 @@ Collection endpoints use a shared paginated response envelope:
   - verify the signature
   - enforce a replay window using the timestamp
   - reject stale or mismatched signatures
+
+## Security Notes
+
+- Refresh-token reuse detection revokes the refresh-token family for the affected user.
+- `X-Request-ID` is echoed on responses and included in handled error payloads for support tracing.

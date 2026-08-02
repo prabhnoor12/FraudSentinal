@@ -5,9 +5,12 @@ from unittest.mock import patch
 import uuid
 
 from fastapi import status
+import pytest
 
 from models.user_models import User
-from services import fraud_rule_service
+from schemas.session_schemas import SessionCreate
+from services import fraud_rule_service, session_service
+from utils.exception_handling_utils import NotFoundError
 
 
 def _email(prefix: str) -> str:
@@ -18,13 +21,13 @@ def _register(client, *, email: str, password: str, organisation_name: str | Non
     payload: dict = {"email": email, "password": password}
     if organisation_name is not None:
         payload["organisation_name"] = organisation_name
-    resp = client.post("/auth/register", json=payload)
+    resp = client.post("/api/v1/auth/register", json=payload)
     assert resp.status_code in (status.HTTP_200_OK, status.HTTP_201_CREATED)
     return resp.json()
 
 
 def _login(client, *, email: str, password: str) -> str:
-    resp = client.post("/auth/login", json={"email": email, "password": password})
+    resp = client.post("/api/v1/auth/login", json={"email": email, "password": password})
     assert resp.status_code == status.HTTP_200_OK
     token = resp.json()["access_token"]
     assert token
@@ -32,7 +35,7 @@ def _login(client, *, email: str, password: str) -> str:
 
 
 def _me(client, *, token: str) -> dict:
-    resp = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    resp = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == status.HTTP_200_OK
     return resp.json()
 
@@ -59,7 +62,7 @@ def test_organisations_list_get_update_summary_and_isolation(client):
     org_a = me_a["organisation_id"]
     assert org_a is not None
 
-    list_resp = client.get("/organisations", headers={"Authorization": f"Bearer {token_a}"})
+    list_resp = client.get("/api/v1/organisations", headers={"Authorization": f"Bearer {token_a}"})
     assert list_resp.status_code == status.HTTP_200_OK
     orgs = list_resp.json()
     assert isinstance(orgs, list)
@@ -67,14 +70,14 @@ def test_organisations_list_get_update_summary_and_isolation(client):
     assert orgs[0]["id"] == org_a
 
     get_resp = client.get(
-        f"/organisations/{org_a}",
+        f"/api/v1/organisations/{org_a}",
         headers={"Authorization": f"Bearer {token_a}"},
     )
     assert get_resp.status_code == status.HTTP_200_OK
     assert get_resp.json()["id"] == org_a
 
     update_resp = client.put(
-        f"/organisations/{org_a}",
+        f"/api/v1/organisations/{org_a}",
         json={"name": f"Renamed_{uuid.uuid4().hex[:8]}"},
         headers={"Authorization": f"Bearer {token_a}"},
     )
@@ -82,7 +85,7 @@ def test_organisations_list_get_update_summary_and_isolation(client):
     assert update_resp.json()["id"] == org_a
 
     summary_resp = client.get(
-        "/organisations/dashboard/summary",
+        "/api/v1/organisations/dashboard/summary",
         headers={"Authorization": f"Bearer {token_a}"},
     )
     assert summary_resp.status_code == status.HTTP_200_OK
@@ -96,7 +99,7 @@ def test_organisations_list_get_update_summary_and_isolation(client):
     assert org_b != org_a
 
     forbidden_get = client.get(
-        f"/organisations/{org_a}",
+        f"/api/v1/organisations/{org_a}",
         headers={"Authorization": f"Bearer {token_b}"},
     )
     assert forbidden_get.status_code == status.HTTP_404_NOT_FOUND
@@ -107,7 +110,7 @@ def test_settings_create_get_update(client):
     org_id = me["organisation_id"]
 
     create_resp = client.post(
-        "/settings",
+        "/api/v1/settings",
         json={
             "organisation_id": org_id,
             "currency": "USD",
@@ -127,14 +130,14 @@ def test_settings_create_get_update(client):
     assert created["review_threshold"] == 41
 
     get_resp = client.get(
-        f"/settings/{org_id}",
+        f"/api/v1/settings/{org_id}",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert get_resp.status_code == status.HTTP_200_OK
     assert get_resp.json()["organisation_id"] == org_id
 
     update_resp = client.put(
-        f"/settings/{org_id}",
+        f"/api/v1/settings/{org_id}",
         json={"review_threshold": 35, "decline_threshold": 80},
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -147,7 +150,7 @@ def test_settings_create_get_update(client):
 def test_users_crud_and_role_admin_only(client, db):
     token, me = _auth_ctx(client, with_org=True)
     create_resp = client.post(
-        "/users",
+        "/api/v1/users",
         json={
             "email": _email("member"),
             "password": "StrongPass123!",
@@ -162,17 +165,17 @@ def test_users_crud_and_role_admin_only(client, db):
     assert created["email"]
     assert created["role"] == "investigator"
 
-    list_resp = client.get("/users", headers={"Authorization": f"Bearer {token}"})
+    list_resp = client.get("/api/v1/users", headers={"Authorization": f"Bearer {token}"})
     assert list_resp.status_code == status.HTTP_200_OK
     users = list_resp.json()
     assert any(u["id"] == user_id for u in users)
 
-    get_resp = client.get(f"/users/{user_id}", headers={"Authorization": f"Bearer {token}"})
+    get_resp = client.get(f"/api/v1/users/{user_id}", headers={"Authorization": f"Bearer {token}"})
     assert get_resp.status_code == status.HTTP_200_OK
     assert get_resp.json()["id"] == user_id
 
     update_resp = client.put(
-        f"/users/{user_id}",
+        f"/api/v1/users/{user_id}",
         json={"full_name": "Updated Name"},
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -180,7 +183,7 @@ def test_users_crud_and_role_admin_only(client, db):
     assert update_resp.json()["full_name"] == "Updated Name"
 
     role_fail = client.patch(
-        f"/users/{user_id}/role",
+        f"/api/v1/users/{user_id}/role",
         params={"role": "admin"},
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -189,21 +192,21 @@ def test_users_crud_and_role_admin_only(client, db):
     _make_admin(db, user_id=me["id"])
 
     role_bad = client.patch(
-        f"/users/{user_id}/role",
+        f"/api/v1/users/{user_id}/role",
         params={"role": "superuser"},
         headers={"Authorization": f"Bearer {token}"},
     )
     assert role_bad.status_code == status.HTTP_400_BAD_REQUEST
 
     role_ok = client.patch(
-        f"/users/{user_id}/role",
+        f"/api/v1/users/{user_id}/role",
         params={"role": "admin"},
         headers={"Authorization": f"Bearer {token}"},
     )
     assert role_ok.status_code == status.HTTP_200_OK
     assert role_ok.json()["role"] == "admin"
 
-    delete_resp = client.delete(f"/users/{user_id}", headers={"Authorization": f"Bearer {token}"})
+    delete_resp = client.delete(f"/api/v1/users/{user_id}", headers={"Authorization": f"Bearer {token}"})
     assert delete_resp.status_code == status.HTTP_204_NO_CONTENT
 
 
@@ -213,7 +216,7 @@ def test_sessions_create_list_get_end(client):
 
     session_token = f"sess_{uuid.uuid4().hex}"
     create_resp = client.post(
-        "/sessions",
+        "/api/v1/sessions",
         json={
             "user_id": user_id,
             "session_token": session_token,
@@ -229,22 +232,43 @@ def test_sessions_create_list_get_end(client):
     assert created["session_token"] == session_token
 
     list_resp = client.get(
-        "/sessions",
+        "/api/v1/sessions",
         params={"user_id": user_id, "status_filter": "active"},
         headers={"Authorization": f"Bearer {token}"},
     )
     assert list_resp.status_code == status.HTTP_200_OK
     assert any(s["id"] == session_id for s in list_resp.json())
 
-    get_resp = client.get(f"/sessions/{session_id}", headers={"Authorization": f"Bearer {token}"})
+    get_resp = client.get(f"/api/v1/sessions/{session_id}", headers={"Authorization": f"Bearer {token}"})
     assert get_resp.status_code == status.HTTP_200_OK
     assert get_resp.json()["id"] == session_id
 
-    end_resp = client.post(f"/sessions/{session_id}/end", headers={"Authorization": f"Bearer {token}"})
+    end_resp = client.post(f"/api/v1/sessions/{session_id}/end", headers={"Authorization": f"Bearer {token}"})
     assert end_resp.status_code == status.HTTP_200_OK
     ended = end_resp.json()
     assert ended["id"] == session_id
     assert ended["status"] != "active"
+
+
+def test_session_service_rejects_cross_org_user(client, db):
+    token_a, me_a = _auth_ctx(client, with_org=True)
+    token_b, me_b = _auth_ctx(client, with_org=True)
+    _ = token_a, token_b
+
+    payload = SessionCreate(
+        user_id=me_a["id"],
+        session_token=f"sess_{uuid.uuid4().hex}",
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+        status="active",
+    )
+
+    with pytest.raises(NotFoundError):
+        session_service.create_session_service(
+            db,
+            payload,
+            organisation_id=me_b["organisation_id"],
+        )
 
 
 def test_usage_and_user_tracking_endpoints(client):
@@ -253,7 +277,7 @@ def test_usage_and_user_tracking_endpoints(client):
     org_id = me["organisation_id"]
 
     event_resp = client.post(
-        "/usage/events",
+        "/api/v1/usage/events",
         json={
             "user_id": user_id,
             "organisation_id": org_id,
@@ -271,7 +295,7 @@ def test_usage_and_user_tracking_endpoints(client):
     assert event["organisation_id"] == org_id
 
     list_events = client.get(
-        "/usage/events",
+        "/api/v1/usage/events",
         params={"organisation_id": org_id},
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -280,7 +304,7 @@ def test_usage_and_user_tracking_endpoints(client):
 
     now = datetime.now(timezone.utc)
     summary_resp = client.post(
-        "/usage/summaries",
+        "/api/v1/usage/summaries",
         json={
             "user_id": user_id,
             "organisation_id": org_id,
@@ -296,7 +320,7 @@ def test_usage_and_user_tracking_endpoints(client):
     assert summary["organisation_id"] == org_id
 
     list_summaries = client.get(
-        "/usage/summaries",
+        "/api/v1/usage/summaries",
         params={"user_id": user_id},
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -304,7 +328,7 @@ def test_usage_and_user_tracking_endpoints(client):
     assert any(s["id"] == summary["id"] for s in list_summaries.json())
 
     ut_event = client.post(
-        "/user-tracking/events",
+        "/api/v1/user-tracking/events",
         json={
             "user_id": user_id,
             "organisation_id": org_id,
@@ -319,7 +343,7 @@ def test_usage_and_user_tracking_endpoints(client):
     assert ut_event.status_code == status.HTTP_201_CREATED
 
     ut_events = client.get(
-        "/user-tracking/events",
+        "/api/v1/user-tracking/events",
         params={"user_id": user_id},
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -333,7 +357,7 @@ def test_limit_tracking_limits_and_records(client):
     org_id = me["organisation_id"]
 
     limit_resp = client.post(
-        "/limit-tracking/limits",
+        "/api/v1/limit-tracking/limits",
         json={
             "organisation_id": org_id,
             "limit_type": "check_fraud",
@@ -348,7 +372,7 @@ def test_limit_tracking_limits_and_records(client):
     usage_limit_id = usage_limit["id"]
 
     list_limits = client.get(
-        "/limit-tracking/limits",
+        "/api/v1/limit-tracking/limits",
         params={"organisation_id": org_id, "limit_type": "check_fraud"},
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -357,7 +381,7 @@ def test_limit_tracking_limits_and_records(client):
 
     now = datetime.now(timezone.utc)
     record_resp = client.post(
-        "/limit-tracking/records",
+        "/api/v1/limit-tracking/records",
         json={
             "usage_limit_id": usage_limit_id,
             "current_usage": 5.0,
@@ -370,7 +394,7 @@ def test_limit_tracking_limits_and_records(client):
     record = record_resp.json()
 
     list_records = client.get(
-        "/limit-tracking/records",
+        "/api/v1/limit-tracking/records",
         params={"usage_limit_id": usage_limit_id},
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -378,7 +402,7 @@ def test_limit_tracking_limits_and_records(client):
     assert any(r["id"] == record["id"] for r in list_records.json())
 
     user_limit = client.post(
-        "/limit-tracking/limits",
+        "/api/v1/limit-tracking/limits",
         json={
             "user_id": user_id,
             "limit_type": "transactions",
@@ -400,7 +424,7 @@ def test_transactions_create_list_get_and_isolation(client):
     org_b = me_b["organisation_id"]
 
     create_resp = client.post(
-        "/transactions",
+        "/api/v1/transactions",
         json={
             "user_id": user_a,
             "organisation_id": org_b,
@@ -416,13 +440,13 @@ def test_transactions_create_list_get_and_isolation(client):
     tx_id = tx["id"]
     assert tx["organisation_id"] == org_a
 
-    get_a = client.get(f"/transactions/{tx_id}", headers={"Authorization": f"Bearer {token_a}"})
+    get_a = client.get(f"/api/v1/transactions/{tx_id}", headers={"Authorization": f"Bearer {token_a}"})
     assert get_a.status_code == status.HTTP_200_OK
 
-    get_b = client.get(f"/transactions/{tx_id}", headers={"Authorization": f"Bearer {token_b}"})
+    get_b = client.get(f"/api/v1/transactions/{tx_id}", headers={"Authorization": f"Bearer {token_b}"})
     assert get_b.status_code == status.HTTP_404_NOT_FOUND
 
-    list_a = client.get("/transactions", headers={"Authorization": f"Bearer {token_a}"})
+    list_a = client.get("/api/v1/transactions", headers={"Authorization": f"Bearer {token_a}"})
     assert list_a.status_code == status.HTTP_200_OK
     assert any(t["id"] == tx_id for t in list_a.json())
 
@@ -435,7 +459,7 @@ def test_check_fraud_creates_decision_and_risk_signals_and_routes(client, db):
     org_id = me["organisation_id"]
 
     resp = client.post(
-        "/check-fraud",
+        "/api/v1/check-fraud",
         json={
             "user_id": user_id,
             "organisation_id": 999999,
@@ -457,19 +481,19 @@ def test_check_fraud_creates_decision_and_risk_signals_and_routes(client, db):
     assert body["decision"] in ("approve", "review", "decline")
     assert body["reason_codes"]
 
-    decisions = client.get("/decisions", headers={"Authorization": f"Bearer {token}"})
+    decisions = client.get("/api/v1/decisions", headers={"Authorization": f"Bearer {token}"})
     assert decisions.status_code == status.HTTP_200_OK
     assert any(d["id"] == body["decision_id"] for d in decisions.json())
 
     decision = client.get(
-        f"/decisions/{body['decision_id']}",
+        f"/api/v1/decisions/{body['decision_id']}",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert decision.status_code == status.HTTP_200_OK
     assert decision.json()["id"] == body["decision_id"]
 
     signals = client.get(
-        "/risk-signals",
+        "/api/v1/risk-signals",
         params={"transaction_id": body["transaction_id"]},
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -479,7 +503,7 @@ def test_check_fraud_creates_decision_and_risk_signals_and_routes(client, db):
 
     sig_id = sigs[0]["id"]
     sig = client.get(
-        f"/risk-signals/{sig_id}",
+        f"/api/v1/risk-signals/{sig_id}",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert sig.status_code == status.HTTP_200_OK
@@ -491,13 +515,13 @@ def test_audit_requires_admin_and_exports_csv(client, db):
 
     token, me = _auth_ctx(client, with_org=True)
 
-    forbidden = client.get("/audit", headers={"Authorization": f"Bearer {token}"})
+    forbidden = client.get("/api/v1/audit", headers={"Authorization": f"Bearer {token}"})
     assert forbidden.status_code == status.HTTP_403_FORBIDDEN
 
     _make_admin(db, user_id=me["id"])
 
     rule_resp = client.post(
-        "/fraud-rules",
+        "/api/v1/fraud-rules",
         json={
             "name": "Audit Rule",
             "rule_code": f"audit_rule_{uuid.uuid4().hex[:8]}",
@@ -513,17 +537,17 @@ def test_audit_requires_admin_and_exports_csv(client, db):
     )
     assert rule_resp.status_code == status.HTTP_201_CREATED
 
-    logs = client.get("/audit", headers={"Authorization": f"Bearer {token}"})
+    logs = client.get("/api/v1/audit", headers={"Authorization": f"Bearer {token}"})
     assert logs.status_code == status.HTTP_200_OK
     assert isinstance(logs.json(), list)
 
-    stats_resp = client.get("/audit/stats", headers={"Authorization": f"Bearer {token}"})
+    stats_resp = client.get("/api/v1/audit/stats", headers={"Authorization": f"Bearer {token}"})
     assert stats_resp.status_code == status.HTTP_200_OK
     stats = stats_resp.json()
     assert "event_type_distribution" in stats
     assert "user_activity_counts" in stats
 
-    export_resp = client.get("/audit/export", headers={"Authorization": f"Bearer {token}"})
+    export_resp = client.get("/api/v1/audit/export", headers={"Authorization": f"Bearer {token}"})
     assert export_resp.status_code == status.HTTP_200_OK
     assert export_resp.headers["content-type"].startswith("text/csv")
     assert "Content-Disposition" in export_resp.headers
@@ -535,14 +559,14 @@ def test_password_reset_request_and_confirm_flow(client):
     password = "StrongPass123!"
     _register(client, email=email, password=password, organisation_name=f"Org_{uuid.uuid4().hex[:8]}")
 
-    req = client.post("/auth/password-reset/request", json={"email": email})
+    req = client.post("/api/v1/auth/password-reset/request", json={"email": email})
     assert req.status_code == status.HTTP_200_OK
     body = req.json()
     assert "reset_token" in body
 
     new_password = "NewStrongPass123!"
     confirm = client.post(
-        "/auth/password-reset/confirm",
+        "/api/v1/auth/password-reset/confirm",
         json={"token": body["reset_token"], "new_password": new_password},
     )
     assert confirm.status_code == status.HTTP_200_OK
@@ -555,20 +579,20 @@ def test_mfa_setup_verify_disable(client):
     token, _ = _auth_ctx(client, with_org=True)
 
     with patch("services.mfa_service.MFAService.generate_setup_data", return_value=("S3CR3T", "QRDATA")):
-        setup = client.post("/mfa/setup", headers={"Authorization": f"Bearer {token}"})
+        setup = client.post("/api/v1/mfa/setup", headers={"Authorization": f"Bearer {token}"})
         assert setup.status_code == status.HTTP_200_OK
         assert setup.json()["secret"] == "S3CR3T"
         assert setup.json()["qr_code"] == "QRDATA"
 
     with patch("services.mfa_service.MFAService.verify_and_enable", return_value=["code1", "code2"]):
         verify = client.post(
-            "/mfa/verify",
+            "/api/v1/mfa/verify",
             json={"secret": "S3CR3T", "code": "123456"},
             headers={"Authorization": f"Bearer {token}"},
         )
         assert verify.status_code == status.HTTP_200_OK
         assert verify.json()["backup_codes"] == ["code1", "code2"]
 
-    disable = client.post("/mfa/disable", headers={"Authorization": f"Bearer {token}"})
+    disable = client.post("/api/v1/mfa/disable", headers={"Authorization": f"Bearer {token}"})
     assert disable.status_code == status.HTTP_200_OK
     assert "message" in disable.json()

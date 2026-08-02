@@ -1,6 +1,15 @@
 from datetime import datetime, UTC
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Integer,
+    String,
+)
 
 from database import Base
 
@@ -9,6 +18,17 @@ class UsageLimit(Base):
     """Defines usage limits for users or organisations."""
 
     __tablename__ = "usage_limits"
+    __table_args__ = (
+        CheckConstraint(
+            "user_id IS NOT NULL OR organisation_id IS NOT NULL",
+            name="ck_usage_limits_target_required",
+        ),
+        ForeignKeyConstraint(
+            ["user_id", "organisation_id"],
+            ["users.id", "users.organisation_id"],
+            name="fk_usage_limits_user_org",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)

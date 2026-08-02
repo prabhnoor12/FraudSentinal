@@ -65,7 +65,7 @@ def bootstrap_user(base_url: str, *, password: str, timeout: float) -> tuple[str
     }
     register_status, register_body = _request_json(
         "POST",
-        f"{base_url}/auth/register",
+        f"{base_url}/api/v1/auth/register",
         payload=register_payload,
         timeout=timeout,
     )
@@ -74,7 +74,7 @@ def bootstrap_user(base_url: str, *, password: str, timeout: float) -> tuple[str
 
     login_status, login_body = _request_json(
         "POST",
-        f"{base_url}/auth/login",
+        f"{base_url}/api/v1/auth/login",
         payload={"email": email, "password": password},
         timeout=timeout,
     )
@@ -83,7 +83,7 @@ def bootstrap_user(base_url: str, *, password: str, timeout: float) -> tuple[str
 
     me_status, me_body = _request_json(
         "GET",
-        f"{base_url}/auth/me",
+        f"{base_url}/api/v1/auth/me",
         headers={"Authorization": f"Bearer {login_body['access_token']}"},
         timeout=timeout,
     )
@@ -134,7 +134,7 @@ def run_single_request(
     started_at = time.perf_counter()
     status, body = _request_json(
         "POST",
-        f"{base_url}/check-fraud",
+        f"{base_url}/api/v1/check-fraud",
         payload=payload,
         headers={
             "Authorization": f"Bearer {token}",

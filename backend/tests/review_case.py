@@ -4,7 +4,7 @@ import pytest
 @pytest.fixture
 def auth_header(client):
     client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={
             "email": "case@test.com",
             "password": "StrongPass123!",
@@ -12,7 +12,7 @@ def auth_header(client):
         },
     )
     token = client.post(
-        "/auth/login", json={"email": "case@test.com", "password": "StrongPass123!"}
+        "/api/v1/auth/login", json={"email": "case@test.com", "password": "StrongPass123!"}
     ).json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
@@ -20,7 +20,7 @@ def auth_header(client):
 @pytest.fixture
 def setup_data(client, auth_header):
     # Get user and org IDs
-    me = client.get("/auth/me", headers=auth_header).json()
+    me = client.get("/api/v1/auth/me", headers=auth_header).json()
     user_id = me["id"]
     org_id = me["organisation_id"]
 
@@ -38,7 +38,7 @@ def setup_data(client, auth_header):
 
     with patch("services.scoring_service.score_transaction", return_value=mock_score):
         response = client.post(
-            "/check-fraud",
+            "/api/v1/check-fraud",
             json={
                 "user_id": user_id,
                 "organisation_id": org_id,
@@ -55,7 +55,7 @@ def setup_data(client, auth_header):
 
 
 def test_list_review_cases(client, auth_header, setup_data):
-    response = client.get("/review-cases", headers=auth_header)
+    response = client.get("/api/v1/review-cases", headers=auth_header)
     assert response.status_code == 200
     data = response.json()
     assert len(data) > 0
@@ -64,12 +64,12 @@ def test_list_review_cases(client, auth_header, setup_data):
 
 def test_resolve_review_case(client, auth_header, setup_data):
     # Get the case ID
-    cases = client.get("/review-cases", headers=auth_header).json()
+    cases = client.get("/api/v1/review-cases", headers=auth_header).json()
     case_id = cases[0]["id"]
 
     # Resolve it
     response = client.post(
-        f"/review-cases/{case_id}/resolve",
+        f"/api/v1/review-cases/{case_id}/resolve",
         json={"resolution_code": "approved_by_analyst", "notes": "Looks fine"},
         headers=auth_header,
     )
@@ -81,17 +81,17 @@ def test_resolve_review_case(client, auth_header, setup_data):
 
 def test_reopen_review_case(client, auth_header, setup_data):
     # Get the case ID and resolve it first
-    cases = client.get("/review-cases", headers=auth_header).json()
+    cases = client.get("/api/v1/review-cases", headers=auth_header).json()
     case_id = cases[0]["id"]
     client.post(
-        f"/review-cases/{case_id}/resolve",
+        f"/api/v1/review-cases/{case_id}/resolve",
         json={"resolution_code": "approved_by_analyst", "notes": "ok"},
         headers=auth_header,
     )
 
     # Reopen it
     response = client.post(
-        f"/review-cases/{case_id}/reopen",
+        f"/api/v1/review-cases/{case_id}/reopen",
         json={"reason": "Need more info"},
         headers=auth_header,
     )

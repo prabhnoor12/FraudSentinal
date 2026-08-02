@@ -15,12 +15,13 @@ from utils.security_utils import (
 
 class TransactionBase(StrictSchema):
     user_id: int
-    organisation_id: int
+    organisation_id: int | None = None
     external_transaction_id: str | None = Field(default=None, max_length=100)
     amount: float = Field(gt=0)
     currency: str = Field(min_length=3, max_length=3)
     payment_method: str = Field(min_length=2, max_length=50)
     channel: str = Field(default="api", min_length=2, max_length=50)
+    transaction_type: str | None = Field(default=None, max_length=50)
     customer_id: str | None = Field(default=None, max_length=100)
     customer_email: str | None = Field(default=None, max_length=255)
     billing_country: str | None = Field(default=None, max_length=2)
@@ -36,6 +37,7 @@ class TransactionBase(StrictSchema):
         "external_transaction_id",
         "payment_method",
         "channel",
+        "transaction_type",
         "customer_id",
         "device_id",
         mode="before",

@@ -141,3 +141,48 @@ def has_ip_address_since(
         .first()
         is not None
     )
+
+
+def count_unique_values_since(
+    db: Session,
+    *,
+    organisation_id: int,
+    customer_id: str,
+    since: datetime,
+    column_name: str,
+) -> int:
+    column = getattr(Transaction, column_name)
+    return (
+        db.query(func.count(distinct(column)))
+        .filter(
+            Transaction.organisation_id == organisation_id,
+            Transaction.customer_id == customer_id,
+            Transaction.created_at >= since,
+            column.isnot(None),
+        )
+        .scalar()
+        or 0
+    )
+
+
+def has_value_since(
+    db: Session,
+    *,
+    organisation_id: int,
+    customer_id: str,
+    since: datetime,
+    column_name: str,
+    value,
+) -> bool:
+    column = getattr(Transaction, column_name)
+    return (
+        db.query(Transaction.id)
+        .filter(
+            Transaction.organisation_id == organisation_id,
+            Transaction.customer_id == customer_id,
+            Transaction.created_at >= since,
+            column == value,
+        )
+        .first()
+        is not None
+    )

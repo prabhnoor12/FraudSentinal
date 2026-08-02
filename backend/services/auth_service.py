@@ -13,6 +13,7 @@ from auth import (
     verify_and_update,
 )
 from cruds import auth_crud, user_crud, organisation_crud
+from models.auth_models import RefreshToken
 from schemas.auth_schemas import (
     APIKeyCreateRequest,
     APIKeyRotateRequest,
@@ -29,6 +30,7 @@ from utils.exception_handling_utils import (
     UnauthorizedError,
     ValidationError,
 )
+from utils.ownership_utils import require_organisation
 from utils.security_utils import (
     derive_fernet_key,
     fingerprint_token,
@@ -69,6 +71,14 @@ def _build_token_pair(db: Session, user) -> dict[str, str]:
         "refresh_token": refresh_token_value,
         "token_type": "bearer",
     }
+
+
+def _revoke_all_refresh_tokens_for_user(db: Session, user_id: int) -> None:
+    tokens = db.query(RefreshToken).filter(RefreshToken.user_id == user_id).all()
+    for token in tokens:
+        if not token.revoked:
+            token.revoked = True
+    db.commit()
 
 
 def _get_api_key_cipher() -> Fernet:
@@ -221,6 +231,12 @@ def verify_mfa_login(db: Session, user_id: int, code: str) -> dict[str, Any]:
 def refresh_user_tokens(db: Session, refresh_token_value: str) -> dict[str, str]:
     refresh_token = auth_crud.get_refresh_token(db, refresh_token_value)
     if not refresh_token or refresh_token.revoked:
+        if refresh_token and refresh_token.revoked:
+            _revoke_all_refresh_tokens_for_user(db, refresh_token.user_id)
+            logger.warning(
+                "refresh_token_reuse_detected",
+                extra={"user_id": refresh_token.user_id},
+            )
         raise UnauthorizedError("Invalid refresh token")
     if _as_utc_naive(refresh_token.expires_at) < _as_utc_naive(datetime.now(UTC)):
         raise UnauthorizedError("Refresh token has expired")
@@ -315,8 +331,7 @@ def get_authenticated_user_from_token(db: Session, token: str):
 def create_service_account_service(
     db: Session, actor_user, payload: ServiceAccountCreate
 ):
-    if not organisation_crud.get_organisation_by_id(db, payload.organisation_id):
-        raise NotFoundError("Organisation not found")
+    require_organisation(db, payload.organisation_id)
     _validate_user_can_manage_org(actor_user, payload.organisation_id)
     return auth_crud.create_service_account(
         db,

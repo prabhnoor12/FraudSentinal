@@ -55,21 +55,24 @@ def list_transactions(
     org_id: int = Depends(get_current_org_id),
     db: Session = Depends(get_db),
 ):
+    normalized_offset = normalize_offset(offset)
+    normalized_limit = normalize_limit(limit, default=100, maximum=200)
+    normalized_sort_dir = normalize_sort_dir(sort_dir)
     items, total = transaction_service.list_transactions_service(
         db,
         user_id=user_id,
         organisation_id=org_id,
-        offset=normalize_offset(offset),
-        limit=normalize_limit(limit, default=100, maximum=200),
+        offset=normalized_offset,
+        limit=normalized_limit,
         sort_by=sort_by,
-        sort_dir=normalize_sort_dir(sort_dir),
+        sort_dir=normalized_sort_dir,
     )
     return build_paginated_payload(
         request=request,
         items=items,
         total=total,
-        limit=normalize_limit(limit, default=100, maximum=200),
-        offset=normalize_offset(offset),
+        limit=normalized_limit,
+        offset=normalized_offset,
     )
 
 

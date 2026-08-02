@@ -15,14 +15,14 @@ def _register_and_login(
     if organisation_name is not None:
         payload["organisation_name"] = organisation_name
 
-    r = client.post("/auth/register", json=payload)
+    r = client.post("/api/v1/auth/register", json=payload)
     assert r.status_code in (status.HTTP_200_OK, status.HTTP_201_CREATED)
 
-    login = client.post("/auth/login", json={"email": email, "password": password})
+    login = client.post("/api/v1/auth/login", json={"email": email, "password": password})
     assert login.status_code == status.HTTP_200_OK
     token = login.json()["access_token"]
 
-    me = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    me = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert me.status_code == status.HTTP_200_OK
     return token, me.json()
 
@@ -44,7 +44,7 @@ def _rule_payload(*, rule_code: str, reason_code: ReasonCode, **overrides):
 
 
 def test_fraud_rules_requires_auth(client):
-    r = client.get("/fraud-rules")
+    r = client.get("/api/v1/fraud-rules")
     assert r.status_code == status.HTTP_401_UNAUTHORIZED
 
 
@@ -66,7 +66,7 @@ def test_create_fraud_rule_enforces_org_id_from_token(client):
     )
 
     r = client.post(
-        "/fraud-rules",
+        "/api/v1/fraud-rules",
         json=_rule_payload(
             rule_code="tenant_override_test",
             reason_code=ReasonCode.velocity_spike,
@@ -89,7 +89,7 @@ def test_create_fraud_rule_normalizes_rule_code(client):
     )
 
     r = client.post(
-        "/fraud-rules",
+        "/api/v1/fraud-rules",
         json=_rule_payload(
             rule_code="My Rule Code",
             reason_code=ReasonCode.high_amount,
@@ -112,7 +112,7 @@ def test_create_fraud_rule_duplicate_rule_code_conflict(client):
     )
 
     r1 = client.post(
-        "/fraud-rules",
+        "/api/v1/fraud-rules",
         json=_rule_payload(
             rule_code="dupe_code", reason_code=ReasonCode.velocity_spike
         ),
@@ -121,7 +121,7 @@ def test_create_fraud_rule_duplicate_rule_code_conflict(client):
     assert r1.status_code == status.HTTP_201_CREATED
 
     r2 = client.post(
-        "/fraud-rules",
+        "/api/v1/fraud-rules",
         json=_rule_payload(
             rule_code="dupe_code", reason_code=ReasonCode.velocity_spike
         ),
@@ -148,7 +148,7 @@ def test_tenant_isolation_get_and_list(client):
     )
 
     create = client.post(
-        "/fraud-rules",
+        "/api/v1/fraud-rules",
         json=_rule_payload(
             rule_code="only_org_a", reason_code=ReasonCode.velocity_spike
         ),
@@ -158,13 +158,13 @@ def test_tenant_isolation_get_and_list(client):
     rule_id = create.json()["id"]
 
     get_b = client.get(
-        f"/fraud-rules/{rule_id}",
+        f"/api/v1/fraud-rules/{rule_id}",
         headers={"Authorization": f"Bearer {token_b}"},
     )
     assert get_b.status_code == status.HTTP_404_NOT_FOUND
 
     list_b = client.get(
-        "/fraud-rules",
+        "/api/v1/fraud-rules",
         headers={"Authorization": f"Bearer {token_b}"},
     )
     assert list_b.status_code == status.HTTP_200_OK
@@ -181,7 +181,7 @@ def test_enable_disable_and_enabled_filter(client):
     )
 
     created = client.post(
-        "/fraud-rules",
+        "/api/v1/fraud-rules",
         json=_rule_payload(
             rule_code="toggle_rule", reason_code=ReasonCode.velocity_spike
         ),
@@ -191,14 +191,14 @@ def test_enable_disable_and_enabled_filter(client):
     rule_id = created.json()["id"]
 
     disabled = client.post(
-        f"/fraud-rules/{rule_id}/disable",
+        f"/api/v1/fraud-rules/{rule_id}/disable",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert disabled.status_code == status.HTTP_200_OK
     assert disabled.json()["enabled"] is False
 
     enabled_list = client.get(
-        "/fraud-rules",
+        "/api/v1/fraud-rules",
         params={"enabled": True},
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -206,7 +206,7 @@ def test_enable_disable_and_enabled_filter(client):
     assert not any(r["id"] == rule_id for r in enabled_list.json())
 
     enabled = client.post(
-        f"/fraud-rules/{rule_id}/enable",
+        f"/api/v1/fraud-rules/{rule_id}/enable",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert enabled.status_code == status.HTTP_200_OK
@@ -223,7 +223,7 @@ def test_update_rule_normalizes_rule_code_and_preserves_tenant(client):
     )
 
     created = client.post(
-        "/fraud-rules",
+        "/api/v1/fraud-rules",
         json=_rule_payload(rule_code="to_update", reason_code=ReasonCode.high_amount),
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -231,7 +231,7 @@ def test_update_rule_normalizes_rule_code_and_preserves_tenant(client):
     rule_id = created.json()["id"]
 
     updated = client.put(
-        f"/fraud-rules/{rule_id}",
+        f"/api/v1/fraud-rules/{rule_id}",
         json={"rule_code": "Updated Code", "organisation_id": 999999},
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -257,7 +257,7 @@ def test_cannot_disable_global_rule_from_tenant(client, db):
     )
 
     r = client.post(
-        f"/fraud-rules/{global_rule.id}/disable",
+        f"/api/v1/fraud-rules/{global_rule.id}/disable",
         headers={"Authorization": f"Bearer {token}"},
     )
     assert r.status_code == status.HTTP_400_BAD_REQUEST

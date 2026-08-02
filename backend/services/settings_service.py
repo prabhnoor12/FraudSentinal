@@ -8,7 +8,14 @@ from schemas.settings_schemas import (
 from utils.exception_handling_utils import ConflictError, NotFoundError
 
 
-def create_settings_service(db: Session, payload: OrganisationSettingsCreate):
+def create_settings_service(
+    db: Session,
+    payload: OrganisationSettingsCreate,
+    *,
+    organisation_id: int | None = None,
+):
+    if organisation_id is not None and payload.organisation_id != organisation_id:
+        raise NotFoundError("Organisation not found")
     if not organisation_crud.get_organisation_by_id(db, payload.organisation_id):
         raise NotFoundError("Organisation not found")
 
@@ -38,6 +45,12 @@ def create_default_settings_service(
         timezone="UTC",
         review_threshold=40,
         decline_threshold=70,
+        threshold_profiles={
+            "default": {"review": 40, "decline": 70},
+            "channels": {},
+            "transaction_types": {},
+            "combinations": {},
+        },
         enable_billing=True,
         enable_usage_tracking=True,
         notification_email=None,

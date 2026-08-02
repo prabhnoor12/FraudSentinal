@@ -58,7 +58,10 @@ def test_ml_predict_returns_bounded_scores():
 
     assert 0 <= result["fraud_probability"] <= 1
     assert 0 <= result["risk_score"] <= 100
-    assert result["model_version"] == "heuristic-v1"
+    assert result["model_version"].startswith("heuristic-")
+    assert "feature_contributions" in result
+    assert "feature_diagnostics" in result
+    assert "blend_weights" in result
 
 
 def test_score_transaction_combines_rule_and_ml_scores_when_enabled(db):
@@ -91,6 +94,8 @@ def test_score_transaction_combines_rule_and_ml_scores_when_enabled(db):
 
     assert result["rule_score"] >= 68.0
     assert result["ml_result"] is not None
+    assert result["rules_version"].startswith("ruleset-")
+    assert result["thresholds"]["review"] <= result["thresholds"]["decline"]
     assert result["risk_score"] >= result["rule_score"] * 0.4
     assert result["decision"] in {
         FraudDecision.review,

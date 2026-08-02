@@ -12,23 +12,23 @@ def _register_and_login(
     if organisation_name is not None:
         payload["organisation_name"] = organisation_name
 
-    r = client.post("/auth/register", json=payload)
+    r = client.post("/api/v1/auth/register", json=payload)
     assert r.status_code in (200, 201)
 
-    login = client.post("/auth/login", json={"email": email, "password": password})
+    login = client.post("/api/v1/auth/login", json={"email": email, "password": password})
     assert login.status_code == 200
     body = login.json()
     assert "access_token" in body
     token = body["access_token"]
 
-    me = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    me = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert me.status_code == 200
     return token, me.json()
 
 
 def test_check_fraud_requires_auth(client):
     resp = client.post(
-        "/check-fraud",
+        "/api/v1/check-fraud",
         json={
             "user_id": 1,
             "organisation_id": 1,
@@ -52,7 +52,7 @@ def test_check_fraud_requires_user_assigned_to_org(client):
     assert me["organisation_id"] is None
 
     resp = client.post(
-        "/check-fraud",
+        "/api/v1/check-fraud",
         json={
             "user_id": me["id"],
             "organisation_id": 9999,
@@ -83,7 +83,7 @@ def test_check_fraud_velocity_spike_enforces_org_and_creates_risk_signals(client
     )
 
     resp = client.post(
-        "/check-fraud",
+        "/api/v1/check-fraud",
         json={
             "user_id": me_a["id"],
             "organisation_id": me_b["organisation_id"],
@@ -103,17 +103,27 @@ def test_check_fraud_velocity_spike_enforces_org_and_creates_risk_signals(client
 
     assert body["decision"] == "review"
     assert body["risk_score"] == 48.0
+    assert body["rule_score"] == 48.0
+    assert body["ml_score"] is None
+    assert body["rules_version"].startswith("ruleset-")
+    assert body["rules_hash"]
+    assert body["thresholds"]["review"] <= body["thresholds"]["decline"]
     assert body["reason_codes"] == [ReasonCode.velocity_spike.value]
+    assert body["matched_rule_codes"] == [
+        "velocity_spike_3",
+        "velocity_spike_5",
+        "velocity_spike_10",
+    ]
 
     tx_id = body["transaction_id"]
 
     tx_a = client.get(
-        f"/transactions/{tx_id}", headers={"Authorization": f"Bearer {token_a}"}
+        f"/api/v1/transactions/{tx_id}", headers={"Authorization": f"Bearer {token_a}"}
     )
     assert tx_a.status_code == 200
 
     tx_b = client.get(
-        f"/transactions/{tx_id}", headers={"Authorization": f"Bearer {token_b}"}
+        f"/api/v1/transactions/{tx_id}", headers={"Authorization": f"Bearer {token_b}"}
     )
     assert tx_b.status_code == 404
 
@@ -138,7 +148,7 @@ def test_check_fraud_low_signal_profile_when_no_rules_match(client, db):
     )
 
     resp = client.post(
-        "/check-fraud",
+        "/api/v1/check-fraud",
         json={
             "user_id": me["id"],
             "organisation_id": me["organisation_id"],
@@ -158,7 +168,9 @@ def test_check_fraud_low_signal_profile_when_no_rules_match(client, db):
 
     assert body["decision"] == "approve"
     assert body["risk_score"] == 0.0
+    assert body["rule_score"] == 0.0
     assert body["reason_codes"] == [ReasonCode.low_signal_profile.value]
+    assert body["processing_time_ms"] >= 0
 
 
 def test_build_scoring_snapshot_includes_effective_rules(db):
@@ -166,7 +178,8 @@ def test_build_scoring_snapshot_includes_effective_rules(db):
 
     snapshot = fraud_check_service._build_scoring_snapshot(db, organisation_id=None)
 
-    assert snapshot["rules_version"] == "v1.0"
+    assert snapshot["rules_version"].startswith("ruleset-")
     assert snapshot["rules_count"] == len(snapshot["rules"])
+    assert snapshot["thresholds"]["review"] == 40.0
     codes = {r["rule_code"] for r in snapshot["rules"]}
     assert {"velocity_spike_3", "velocity_spike_5", "velocity_spike_10"}.issubset(codes)

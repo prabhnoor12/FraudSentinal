@@ -5,6 +5,7 @@ from auth import get_current_org_id, oauth2_scheme
 from database import get_db
 from schemas.session_schemas import SessionCreate, SessionListResponse, SessionOut
 from services import auth_service, session_service
+from utils.ownership_utils import require_session_in_organisation
 from utils.pagination_utils import (
     build_paginated_payload,
     normalize_limit,
@@ -62,19 +63,37 @@ def list_sessions(
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_auth)],
 )
-def create_session(payload: SessionCreate, db: Session = Depends(get_db)):
-    return session_service.create_session_service(db, payload)
+def create_session(
+    payload: SessionCreate,
+    org_id: int = Depends(get_current_org_id),
+    db: Session = Depends(get_db),
+):
+    return session_service.create_session_service(
+        db,
+        payload,
+        organisation_id=org_id,
+    )
 
 
 @router.get(
     "/{session_id}", response_model=SessionOut, dependencies=[Depends(require_auth)]
 )
-def get_session(session_id: int, db: Session = Depends(get_db)):
-    return session_service.get_session_service(db, session_id)
+def get_session(
+    session_id: int,
+    org_id: int = Depends(get_current_org_id),
+    db: Session = Depends(get_db),
+):
+    require_session_in_organisation(db, session_id=session_id, organisation_id=org_id)
+    return session_service.get_session_service(db, session_id, organisation_id=org_id)
 
 
 @router.post(
     "/{session_id}/end", response_model=SessionOut, dependencies=[Depends(require_auth)]
 )
-def end_session(session_id: int, db: Session = Depends(get_db)):
-    return session_service.end_session_service(db, session_id)
+def end_session(
+    session_id: int,
+    org_id: int = Depends(get_current_org_id),
+    db: Session = Depends(get_db),
+):
+    require_session_in_organisation(db, session_id=session_id, organisation_id=org_id)
+    return session_service.end_session_service(db, session_id, organisation_id=org_id)

@@ -56,6 +56,7 @@ def list_audit_logs(
     """List audit logs with multi-condition filtering and tenant isolation."""
     normalized_limit = normalize_limit(limit, default=100, maximum=500)
     normalized_offset = normalize_offset(offset)
+    normalized_sort_dir = normalize_sort_dir(sort_dir)
     items, total = audit_service.AuditService.list_logs(
         db,
         organisation_id=org_id,
@@ -67,7 +68,7 @@ def list_audit_logs(
         limit=normalized_limit,
         offset=normalized_offset,
         sort_by=sort_by,
-        sort_dir=normalize_sort_dir(sort_dir),
+        sort_dir=normalized_sort_dir,
     )
     return build_paginated_payload(
         request=request,

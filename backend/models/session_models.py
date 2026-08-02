@@ -1,6 +1,14 @@
 from datetime import datetime, UTC
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Integer,
+    String,
+    Text,
+)
 
 from database import Base
 
@@ -9,9 +17,19 @@ class UserSession(Base):
     """Tracks active or historical user sessions."""
 
     __tablename__ = "user_sessions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["user_id", "organisation_id"],
+            ["users.id", "users.organisation_id"],
+            name="fk_user_sessions_user_org",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    organisation_id = Column(
+        Integer, ForeignKey("organisations.id"), nullable=False, index=True
+    )
     session_token = Column(String(255), unique=True, index=True, nullable=False)
     ip_address = Column(String(45), nullable=True)
     user_agent = Column(Text, nullable=True)

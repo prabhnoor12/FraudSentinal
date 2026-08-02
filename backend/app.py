@@ -1,5 +1,6 @@
 from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import PlainTextResponse
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 import os
@@ -101,13 +102,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(LoggingMiddleware, exclude_paths={"/health"})
+app.add_middleware(LoggingMiddleware, exclude_paths={"/api/v1/health"})
 if not is_testing():
     app.add_middleware(
         RateLimitMiddleware,
         calls=120,
         window_seconds=60,
-        exempt_paths={"/health"},
+        exempt_paths={"/api/v1/health"},
         rate_limit_store=build_rate_limit_store("fraudsentinel:rate_limit"),
         endpoint_overrides=(
             RateLimitOverride(
@@ -152,7 +153,7 @@ if not is_testing():
         IPLimitMiddleware,
         calls=300,
         window_seconds=60,
-        exempt_paths={"/health"},
+        exempt_paths={"/api/v1/health"},
         rate_limit_store=build_rate_limit_store("fraudsentinel:ip_limit"),
     )
 app.add_middleware(
@@ -202,17 +203,11 @@ import sys
 logger = logging.getLogger("fraudsentinel.app")
 
 
-@app.get("/health")
-def health_check() -> dict[str, str]:
-    return {"status": "ok"}
-
-
 @app.get("/api/v1/health")
 def v1_health_check() -> dict[str, str]:
     return {"status": "ok", "version": "v1"}
 
 
-@app.get("/metrics")
 def metrics() -> dict[str, object]:
     return {
         "status": "ok",
@@ -220,6 +215,15 @@ def metrics() -> dict[str, object]:
     }
 
 
+def metrics_prometheus() -> str:
+    return fraud_metrics.prometheus_text()
+
+
 @app.get("/api/v1/metrics")
 def v1_metrics() -> dict[str, object]:
     return metrics()
+
+
+@app.get("/api/v1/metrics/prometheus", response_class=PlainTextResponse)
+def v1_metrics_prometheus() -> str:
+    return metrics_prometheus()

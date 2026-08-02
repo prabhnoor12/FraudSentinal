@@ -1,0 +1,137 @@
+
+.fs-kicker {
+  margin: 0 0 10px;
+  color: rgba(255, 255, 255, 0.72);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 12px;
+}
+
+.fs-lead {
+  margin: 0;
+  color: var(--fs-muted);
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.fs-checklist {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--fs-muted);
+  display: grid;
+  gap: 10px;
+}
+
+.fs-ordered-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--fs-muted);
+  display: grid;
+  gap: 10px;
+}
+
+.fs-docs {
+  padding-bottom: 8px;
+}
+
+.fs-doc-table code {
+  color: var(--fs-text);
+}
+
+.fs-example-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.fs-example-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid var(--fs-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.04);
+}
+
+.fs-example-card .fs-card-header {
+  margin-bottom: 0;
+}
+
+.fs-example-card h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.fs-example-card p {
+  margin: 4px 0 0;
+}
+
+.fs-example-block {
+  display: grid;
+  gap: 8px;
+}
+
+.fs-example-label {
+  color: var(--fs-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.fs-flow {
+  display: grid;
+  gap: 12px;
+}
+
+.fs-flow-step {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--fs-border);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.fs-flow-step p {
+  margin: 4px 0 0;
+  color: var(--fs-muted);
+}
+
+.fs-flow-index {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(109, 94, 252, 0.22);
+  border: 1px solid rgba(109, 94, 252, 0.45);
+  font-weight: 700;
+}
+
+.fs-json {
+  margin: 0;
+  padding: 14px;
+  overflow: auto;
+  border-radius: 14px;
+  border: 1px solid var(--fs-border);
+  background: rgba(4, 8, 20, 0.72);
+  color: var(--fs-text);
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre;
+}
+
+@media (max-width: 640px) {
+  .fs-flow-step {
+    grid-template-columns: 1fr;
+  }
+
+  .fs-flow-index {
+    width: 36px;
+    height: 36px;
+  }
+}

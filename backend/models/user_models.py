@@ -1,6 +1,15 @@
 from datetime import datetime, UTC
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 
 from database import Base
 
@@ -9,6 +18,9 @@ class User(Base):
     """Basic user record used by billing and usage tracking."""
 
     __tablename__ = "users"
+    __table_args__ = (
+        UniqueConstraint("id", "organisation_id", name="uq_users_id_organisation"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     organisation_id = Column(

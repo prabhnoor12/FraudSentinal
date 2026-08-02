@@ -1,0 +1,232 @@
+.fs-container {
+  width: min(var(--fs-container), calc(100% - 24px));
+  margin: 0 auto;
+}
+
+.fs-page {
+  display: grid;
+  gap: 20px;
+}
+
+.fs-muted {
+  color: var(--fs-muted);
+}
+
+.fs-page-header {
+  display: grid;
+  gap: 8px;
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+}
+
+.fs-page-header h1 {
+  font-size: 28px;
+  margin: 0;
+  letter-spacing: -0.04em;
+}
+
+.fs-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+  padding: 18px;
+  overflow: hidden;
+}
+
+.fs-card-header,
+.fs-section-header,
+.fs-settings-section {
+  display: grid;
+  gap: 8px;
+}
+
+.fs-card-header {
+  margin-bottom: 14px;
+}
+
+.fs-card-header h1,
+.fs-card-header h2,
+.fs-card-header h3,
+.fs-card-header p,
+.fs-section-header h3 {
+  margin: 0;
+}
+
+.fs-card-header p {
+  margin-top: 6px;
+  color: var(--fs-muted);
+}
+
+.fs-eyebrow,
+.fs-summary-label {
+  color: rgba(255, 255, 255, 0.68);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+}
+
+.fs-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.fs-summary-card {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.fs-summary-card strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 17px;
+}
+
+.fs-form {
+  display: grid;
+  gap: 18px;
+}
+
+.fs-settings-section {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.fs-form-grid,
+.fs-toggle-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.fs-field {
+  display: grid;
+  gap: 7px;
+}
+
+.fs-field-full {
+  grid-column: 1 / -1;
+}
+
+.fs-field-check {
+  grid-template-columns: 20px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.fs-field span {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.fs-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.24);
+  color: var(--fs-text);
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.fs-input:focus {
+  border-color: rgba(49, 196, 141, 0.5);
+  box-shadow: 0 0 0 3px rgba(49, 196, 141, 0.12);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.fs-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.fs-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(49, 196, 141, 0.28);
+  background: rgba(49, 196, 141, 0.14);
+  color: var(--fs-text);
+  cursor: pointer;
+  font-weight: 700;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.fs-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(49, 196, 141, 0.46);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
+}
+
+.fs-button[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.fs-status-note {
+  color: #b8f0d8;
+  font-weight: 600;
+}
+
+.fs-skeleton {
+  color: var(--fs-muted);
+}
+
+.fs-alert {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--fs-border);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.fs-alert.is-error {
+  border-color: rgba(255, 77, 103, 0.35);
+  background: rgba(255, 77, 103, 0.12);
+}
+
+@media (max-width: 860px) {
+  .fs-summary-grid,
+  .fs-form-grid,
+  .fs-toggle-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .fs-page-header h1 {
+    font-size: 23px;
+  }
+
+  .fs-card,
+  .fs-page-header,
+  .fs-settings-section {
+    padding: 16px;
+  }
+
+  .fs-form-actions {
+    align-items: stretch;
+  }
+
+  .fs-button {
+    width: 100%;
+  }
+}

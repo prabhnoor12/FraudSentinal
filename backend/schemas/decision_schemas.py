@@ -48,5 +48,21 @@ class DecisionOut(DecisionBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class DecisionReplayOut(BaseModel):
+    decision_id: int
+    transaction_id: int
+    organisation_id: int
+    original_decision: FraudDecision
+    replayed_decision: FraudDecision
+    original_risk_score: float = Field(ge=0, le=100)
+    replayed_risk_score: float = Field(ge=0, le=100)
+    original_rule_score: float = Field(ge=0, le=100)
+    replayed_rule_score: float = Field(ge=0, le=100)
+    matches_original_decision: bool
+    replay: dict[str, Any]
+    scoring_snapshot: dict[str, Any]
+    replayed_at: datetime
+
+
 class DecisionListResponse(PaginatedResponse[DecisionOut]):
     pass

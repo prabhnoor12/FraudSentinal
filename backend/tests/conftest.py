@@ -1,52 +1,60 @@
 import os
+import sys
 import warnings
+from pathlib import Path
 from unittest import mock
 
 import pytest
+from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 
 warnings.filterwarnings(
     "ignore",
     message=r"Using `httpx` with `starlette\.testclient` is deprecated; install `httpx2` instead\.",
 )
-from sqlalchemy import create_engine
+from sqlalchemy import event
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 os.environ["TESTING"] = "1"
-os.environ["DATABASE_URL"] = "sqlite:///./test_app.db"
+os.environ["DATABASE_URL"] = "sqlite+pysqlite:///D:/Trae_projects/FraudSentinal/backend/tests/test.db?check_same_thread=false"
 os.environ["SECRET_KEY"] = "TestSecretKey123!TestSecretKey123!"
 os.environ["JWT_ISSUER"] = "FraudSentinal"
 os.environ["JWT_AUDIENCE"] = "fraudsentinel-api"
 os.environ["RAZORPAY_WEBHOOK_SECRET"] = "razorpay-test-webhook-secret"
 
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+load_dotenv(BACKEND_ROOT / ".env", override=False)
+
 from app import app
 from database import engine as app_engine
 from database import get_db
 from database import Base
+from models import auth_models
 from middleware.rate_limiting_middleware import MemoryRateLimitStore
 from services.enrichment_service import reset_enrichment_lookup_cache
 from services.fraud_rule_service import reset_effective_rule_cache
 from services.fraud_metrics_service import fraud_metrics
 
-# Use an in-memory SQLite database for testing
-SQLALCHEMY_DATABASE_URL = "sqlite://"
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=app_engine)
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+@event.listens_for(app_engine, "connect")
+def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
+    try:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+    except Exception:
+        pass
 
 
 @pytest.fixture(scope="session")
 def db_engine():
-    Base.metadata.create_all(bind=engine)
     Base.metadata.create_all(bind=app_engine)
-    yield engine
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.drop_all(bind=app_engine)
+    yield app_engine
 
 
 @pytest.fixture

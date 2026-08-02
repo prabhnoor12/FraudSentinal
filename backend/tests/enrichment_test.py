@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 def test_enrichment_lookup_ip(client):
     # Register and login to get token
     client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={
             "email": "geo@test.com",
             "password": "StrongPass123!",
@@ -12,7 +12,7 @@ def test_enrichment_lookup_ip(client):
         },
     )
     token = client.post(
-        "/auth/login", json={"email": "geo@test.com", "password": "StrongPass123!"}
+        "/api/v1/auth/login", json={"email": "geo@test.com", "password": "StrongPass123!"}
     ).json()["access_token"]
 
     mock_geo = MagicMock()
@@ -27,7 +27,7 @@ def test_enrichment_lookup_ip(client):
         "cruds.ip_geolocation_crud.get_geolocation_by_ip", return_value=mock_geo
     ):
         response = client.get(
-            "/enrichment/ip-geolocation/lookup?ip_address=8.8.8.8",
+            "/api/v1/enrichment/ip-geolocation/lookup?ip_address=8.8.8.8",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 200
@@ -39,7 +39,7 @@ def test_enrichment_lookup_ip(client):
 def test_enrichment_lookup_bin(client):
     # Register and login to get token
     client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={
             "email": "bin@test.com",
             "password": "StrongPass123!",
@@ -47,7 +47,7 @@ def test_enrichment_lookup_bin(client):
         },
     )
     token = client.post(
-        "/auth/login", json={"email": "bin@test.com", "password": "StrongPass123!"}
+        "/api/v1/auth/login", json={"email": "bin@test.com", "password": "StrongPass123!"}
     ).json()["access_token"]
 
     mock_bin = MagicMock()
@@ -61,7 +61,7 @@ def test_enrichment_lookup_bin(client):
 
     with patch("cruds.bin_lookup_crud.get_bin_by_number", return_value=mock_bin):
         response = client.get(
-            "/enrichment/bin-lookup/lookup?bin_number=424242",
+            "/api/v1/enrichment/bin-lookup/lookup?bin_number=424242",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 200
@@ -73,7 +73,7 @@ def test_enrichment_lookup_bin(client):
 def test_enrichment_signals_integration(client):
     # This tests the /signals/test endpoint which combines both
     client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={
             "email": "sig@test.com",
             "password": "StrongPass123!",
@@ -81,7 +81,7 @@ def test_enrichment_signals_integration(client):
         },
     )
     token = client.post(
-        "/auth/login", json={"email": "sig@test.com", "password": "StrongPass123!"}
+        "/api/v1/auth/login", json={"email": "sig@test.com", "password": "StrongPass123!"}
     ).json()["access_token"]
 
     mock_geo = MagicMock()
@@ -112,7 +112,7 @@ def test_enrichment_signals_integration(client):
         )
 
         response = client.get(
-            "/enrichment/signals/test?ip_address=8.8.8.8&card_number=4242424242424242&billing_country=US",
+            "/api/v1/enrichment/signals/test?ip_address=8.8.8.8&card_number=4242424242424242&billing_country=US",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 200

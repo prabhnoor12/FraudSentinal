@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 import json
+import os
 import time
 from threading import RLock
 from typing import Any
@@ -30,6 +31,8 @@ class IPGeoSignals:
     ip_longitude: str | None = None
     ip_isp: str | None = None
     geolocation_available: bool = False
+    lookup_source: str = "miss"
+    lookup_confidence: float = 0.0
 
 
 @dataclass
@@ -46,6 +49,8 @@ class BINSignals:
     is_commercial: bool = False
     bin_risk_score: int = 0
     bin_available: bool = False
+    lookup_source: str = "miss"
+    lookup_confidence: float = 0.0
 
 
 @dataclass
@@ -149,6 +154,26 @@ class EnrichmentLookupCache:
 lookup_cache = EnrichmentLookupCache()
 IP_GEO_CACHE_TTL_SECONDS = 60 * 60 * 24
 BIN_CACHE_TTL_SECONDS = 60 * 60 * 24 * 7
+DEFAULT_HIGH_RISK_BIN_THRESHOLD = 50
+
+
+def _parse_csv_env(name: str) -> set[str]:
+    raw = os.getenv(name, "")
+    return {part.strip().upper() for part in raw.split(",") if part.strip()}
+
+
+def _get_high_risk_country_codes() -> set[str]:
+    return _parse_csv_env("FRAUD_HIGH_RISK_COUNTRY_CODES")
+
+
+def _get_high_risk_bin_threshold() -> int:
+    raw = os.getenv("FRAUD_HIGH_RISK_BIN_THRESHOLD")
+    if not raw:
+        return DEFAULT_HIGH_RISK_BIN_THRESHOLD
+    try:
+        return max(int(raw), 0)
+    except ValueError:
+        return DEFAULT_HIGH_RISK_BIN_THRESHOLD
 
 
 def reset_enrichment_lookup_cache() -> None:
@@ -191,7 +216,7 @@ def enrich_transaction_signals(
         bin_issuing_country_mismatch=_check_country_mismatch(
             bin_data.issuing_country_code, billing_country
         ),
-        high_risk_bin=bin_data.bin_risk_score >= 50,
+        high_risk_bin=bin_data.bin_risk_score >= _get_high_risk_bin_threshold(),
         ip_geo_high_risk=_is_high_risk_country(ip_geo.ip_country_code),
     )
 
@@ -213,7 +238,7 @@ def enrich_transaction_signals(
 def _enrich_ip_geolocation(db: Session, ip_address: str | None) -> IPGeoSignals:
     """Get IP geolocation signals."""
     if not ip_address:
-        return IPGeoSignals(geolocation_available=False)
+        return IPGeoSignals(geolocation_available=False, lookup_source="miss")
 
     cache_key = f"enrichment:ip_geo:{ip_address}"
     cached = lookup_cache.get(cache_key)
@@ -231,28 +256,32 @@ def _enrich_ip_geolocation(db: Session, ip_address: str | None) -> IPGeoSignals:
                 ip_longitude=geo.longitude,
                 ip_isp=geo.isp,
                 geolocation_available=True,
+                lookup_source="db",
+                lookup_confidence=0.95,
             )
             lookup_cache.set(cache_key, signals.__dict__, IP_GEO_CACHE_TTL_SECONDS)
             return signals
     except Exception:
         pass  # Fail gracefully if lookup fails
 
-    return IPGeoSignals(geolocation_available=False)
+    return IPGeoSignals(geolocation_available=False, lookup_source="miss")
 
 
 def _enrich_bin_data(db: Session, card_number: str | None) -> BINSignals:
     """Get BIN lookup signals."""
     if not card_number or len(card_number) < 6:
-        return BINSignals(bin_available=False)
+        return BINSignals(bin_available=False, lookup_source="miss")
 
-    normalized_bin = card_number[:6]
+    normalized_bin = "".join(ch for ch in card_number if ch.isdigit())[:6]
+    if len(normalized_bin) < 6:
+        return BINSignals(bin_available=False, lookup_source="miss")
     cache_key = f"enrichment:bin:{normalized_bin}"
     cached = lookup_cache.get(cache_key)
     if cached:
         return BINSignals(**cached)
 
     try:
-        bin_data = bin_lookup_crud.get_bin_by_card_number(db, card_number)
+        bin_data = bin_lookup_crud.get_bin_by_card_number(db, normalized_bin)
         if bin_data:
             signals = BINSignals(
                 bin_number=bin_data.bin_number,
@@ -265,13 +294,15 @@ def _enrich_bin_data(db: Session, card_number: str | None) -> BINSignals:
                 is_commercial=bin_data.is_commercial,
                 bin_risk_score=bin_data.risk_score,
                 bin_available=True,
+                lookup_source="db",
+                lookup_confidence=0.95,
             )
             lookup_cache.set(cache_key, signals.__dict__, BIN_CACHE_TTL_SECONDS)
             return signals
     except Exception:
         pass  # Fail gracefully if lookup fails
 
-    return BINSignals(bin_available=False)
+    return BINSignals(bin_available=False, lookup_source="miss")
 
 
 def _check_country_mismatch(detected: str | None, billing: str | None) -> bool:
@@ -291,15 +322,7 @@ def _is_high_risk_country(country_code: str | None) -> bool:
     """
     if not country_code:
         return False
-
-    # Example high-risk countries (this should be configurable)
-    # This is a placeholder list - real implementation should be data-driven
-    high_risk_countries = {
-        # This would be populated based on actual fraud data
-        # Leaving empty for now as this is organization-specific
-    }
-
-    return country_code.upper() in high_risk_countries
+    return country_code.upper() in _get_high_risk_country_codes()
 
 
 # Convenience function for the rule engine
@@ -329,6 +352,8 @@ def get_enriched_transaction_data(
         "ip_city": result.ip_geo.ip_city,
         "ip_isp": result.ip_geo.ip_isp,
         "geolocation_available": result.ip_geo.geolocation_available,
+        "ip_geo_confidence": result.ip_geo.lookup_confidence,
+        "ip_geo_lookup_source": result.ip_geo.lookup_source,
         # BIN Data
         "card_brand": result.bin_data.card_brand,
         "card_type": result.bin_data.card_type,
@@ -339,6 +364,8 @@ def get_enriched_transaction_data(
         "is_commercial": result.bin_data.is_commercial,
         "bin_risk_score": result.bin_data.bin_risk_score,
         "bin_available": result.bin_data.bin_available,
+        "bin_confidence": result.bin_data.lookup_confidence,
+        "bin_lookup_source": result.bin_data.lookup_source,
         # Derived Fraud Signals
         "ip_billing_country_mismatch": result.ip_billing_country_mismatch,
         "bin_issuing_country_mismatch": result.bin_issuing_country_mismatch,

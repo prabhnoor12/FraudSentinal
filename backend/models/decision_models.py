@@ -1,6 +1,16 @@
 from datetime import datetime, UTC
 
-from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import (
+    JSON,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 
 from database import Base
 
@@ -9,6 +19,19 @@ class Decision(Base):
     """Stores the explainable fraud decision generated for a transaction."""
 
     __tablename__ = "decisions"
+    __table_args__ = (
+        UniqueConstraint("id", "organisation_id", name="uq_decisions_id_organisation"),
+        ForeignKeyConstraint(
+            ["transaction_id", "organisation_id"],
+            ["transactions.id", "transactions.organisation_id"],
+            name="fk_decisions_transaction_org",
+        ),
+        ForeignKeyConstraint(
+            ["user_id", "organisation_id"],
+            ["users.id", "users.organisation_id"],
+            name="fk_decisions_user_org",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     transaction_id = Column(

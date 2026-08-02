@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 from schemas.api_schemas import PaginatedResponse
 
@@ -80,6 +80,24 @@ class ReviewCaseReopen(BaseModel):
     )
 
 
+class ReviewCaseManualOverride(BaseModel):
+    resolution: ReviewCaseResolution = Field(
+        validation_alias=AliasChoices("resolution", "resolution_code"),
+        serialization_alias="resolution_code",
+    )
+    override_reason: str = Field(min_length=3, max_length=500)
+    notes: str | None = Field(default=None, max_length=2000)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("override_reason")
+    @classmethod
+    def _normalize_override_reason(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("override_reason cannot be blank")
+        return normalized
+
+
 class ReviewCaseOut(BaseModel):
     id: int
     transaction_id: int
@@ -107,3 +125,12 @@ class ReviewCaseOut(BaseModel):
 
 class ReviewCaseListResponse(PaginatedResponse[ReviewCaseOut]):
     pass
+
+
+class ReviewCaseStatsOut(BaseModel):
+    total: int
+    open_count: int
+    resolved_count: int
+    overdue_count: int
+    oldest_open_case_at: datetime | None = None
+    recent_open_cases: list[ReviewCaseOut] = Field(default_factory=list)

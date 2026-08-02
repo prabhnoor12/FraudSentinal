@@ -24,17 +24,20 @@ const RESOLUTION_OPTIONS = [
 
       <div class="fs-card">
         <div class="fs-toolbar">
-          <div class="fs-chip-group">
-            @for (scope of scopes; track scope.value) {
-              <button
-                type="button"
-                class="fs-chip"
-                [class.is-active]="activeScope() === scope.value"
-                (click)="changeScope(scope.value)"
-              >
-                {{ scope.label }}
-              </button>
-            }
+          <div class="fs-toolbar-copy">
+            <span class="fs-eyebrow">Queue views</span>
+            <div class="fs-chip-group">
+              @for (scope of scopes; track scope.value) {
+                <button
+                  type="button"
+                  class="fs-chip"
+                  [class.is-active]="activeScope() === scope.value"
+                  (click)="changeScope(scope.value)"
+                >
+                  {{ scope.label }}
+                </button>
+              }
+            </div>
           </div>
           <button class="fs-button is-secondary" type="button" (click)="reload()" [disabled]="loading()">
             Refresh
@@ -49,12 +52,30 @@ const RESOLUTION_OPTIONS = [
             <p class="fs-muted">{{ cases().length }} case(s)</p>
           </div>
 
+          <div class="fs-queue-summary">
+            <div class="fs-summary-card">
+              <span class="fs-summary-label">Active filter</span>
+              <strong>{{ activeScopeLabel() }}</strong>
+            </div>
+            <div class="fs-summary-card">
+              <span class="fs-summary-label">Open cases</span>
+              <strong>{{ openCaseCount() }}</strong>
+            </div>
+            <div class="fs-summary-card">
+              <span class="fs-summary-label">Resolved cases</span>
+              <strong>{{ resolvedCaseCount() }}</strong>
+            </div>
+          </div>
+
           @if (loading()) {
-            <div class="fs-skeleton">Loading cases…</div>
+            <div class="fs-skeleton">Loading cases...</div>
           } @else if (error()) {
             <div class="fs-alert is-error">{{ error() }}</div>
           } @else if (cases().length === 0) {
-            <div class="fs-muted">No cases found for the current filter.</div>
+            <div class="fs-empty-state">
+              <strong>No cases found</strong>
+              <p class="fs-muted">There are no review cases for the current queue filter.</p>
+            </div>
           } @else {
             <ul class="fs-list">
               @for (reviewCase of cases(); track reviewCase.id) {
@@ -65,10 +86,28 @@ const RESOLUTION_OPTIONS = [
                     [class.is-selected]="selectedCaseId() === reviewCase.id"
                     (click)="selectCase(reviewCase.id)"
                   >
-                    <div class="fs-list-title">Case #{{ reviewCase.id }} · Tx {{ reviewCase.transaction_id }}</div>
-                    <div class="fs-list-meta">
-                      {{ reviewCase.status }} · decision {{ reviewCase.decision_id }} ·
-                      {{ reviewCase.updated_at }}
+                    <div class="fs-list-topline">
+                      <div class="fs-list-title-group">
+                        <div class="fs-list-title">Case #{{ reviewCase.id }}</div>
+                        <div class="fs-list-subtitle">Transaction #{{ reviewCase.transaction_id }}</div>
+                      </div>
+                      <span class="fs-status-pill" [class.is-open]="reviewCase.status === 'open'">
+                        {{ reviewCase.status }}
+                      </span>
+                    </div>
+                    <div class="fs-list-meta-grid">
+                      <div>
+                        <span class="fs-meta-label">Decision</span>
+                        <strong>#{{ reviewCase.decision_id }}</strong>
+                      </div>
+                      <div>
+                        <span class="fs-meta-label">Updated</span>
+                        <strong>{{ reviewCase.updated_at }}</strong>
+                      </div>
+                      <div>
+                        <span class="fs-meta-label">Resolution</span>
+                        <strong>{{ reviewCase.resolution_code || 'pending' }}</strong>
+                      </div>
                     </div>
                   </button>
                 </li>
@@ -83,12 +122,28 @@ const RESOLUTION_OPTIONS = [
           </div>
 
           @if (detailLoading()) {
-            <div class="fs-skeleton">Loading case details…</div>
+            <div class="fs-skeleton">Loading case details...</div>
           } @else if (detailError()) {
             <div class="fs-alert is-error">{{ detailError() }}</div>
           } @else if (!selectedCase()) {
-            <div class="fs-muted">Select a case from the queue to inspect it.</div>
+            <div class="fs-empty-state">
+              <strong>Select a case</strong>
+              <p class="fs-muted">Choose a queue item to inspect metadata, notes, and available actions.</p>
+            </div>
           } @else {
+            <div class="fs-detail-hero">
+              <div>
+                <span class="fs-eyebrow">Selected case</span>
+                <h3>Case #{{ selectedCase()!.id }}</h3>
+                <p class="fs-muted">
+                  Transaction #{{ selectedCase()!.transaction_id }} linked to decision #{{ selectedCase()!.decision_id }}.
+                </p>
+              </div>
+              <span class="fs-status-pill" [class.is-open]="selectedCase()!.status === 'open'">
+                {{ selectedCase()!.status }}
+              </span>
+            </div>
+
             <div class="fs-detail-grid">
               <div class="fs-stat-card">
                 <span class="fs-stat-label">Status</span>
@@ -127,6 +182,7 @@ const RESOLUTION_OPTIONS = [
                 <form class="fs-form" [formGroup]="resolveForm" (ngSubmit)="resolveSelectedCase()">
                   <div class="fs-card-header">
                     <h3>Resolve Case</h3>
+                    <p class="fs-muted">Record the analyst outcome and keep the audit trail complete.</p>
                   </div>
                   <label class="fs-field">
                     <span>Resolution</span>
@@ -142,7 +198,7 @@ const RESOLUTION_OPTIONS = [
                   </label>
                   <div class="fs-form-actions">
                     <button class="fs-button" type="submit" [disabled]="actionBusy() || resolveForm.invalid">
-                      @if (actionBusy()) { Resolving… } @else { Resolve case }
+                      @if (actionBusy()) { Resolving... } @else { Resolve case }
                     </button>
                     <a class="fs-button is-secondary" [routerLink]="['/transactions', selectedCase()!.transaction_id]">
                       Open transaction
@@ -156,6 +212,7 @@ const RESOLUTION_OPTIONS = [
                 <form class="fs-form" [formGroup]="reopenForm" (ngSubmit)="reopenSelectedCase()">
                   <div class="fs-card-header">
                     <h3>Reopen Case</h3>
+                    <p class="fs-muted">Explain why this case should return to analyst review.</p>
                   </div>
                   <label class="fs-field">
                     <span>Reason</span>
@@ -163,7 +220,7 @@ const RESOLUTION_OPTIONS = [
                   </label>
                   <div class="fs-form-actions">
                     <button class="fs-button" type="submit" [disabled]="actionBusy() || reopenForm.invalid">
-                      @if (actionBusy()) { Reopening… } @else { Reopen case }
+                      @if (actionBusy()) { Reopening... } @else { Reopen case }
                     </button>
                     <a class="fs-button is-secondary" [routerLink]="['/transactions', selectedCase()!.transaction_id]">
                       Open transaction
@@ -180,6 +237,7 @@ const RESOLUTION_OPTIONS = [
       </div>
     </section>
   `,
+  styleUrl: './review-cases.page.scss',
 })
 export class ReviewCasesPage {
   private readonly fb = new FormBuilder();
@@ -217,6 +275,18 @@ export class ReviewCasesPage {
 
   constructor() {
     void this.reload();
+  }
+
+  protected activeScopeLabel(): string {
+    return this.scopes.find((scope) => scope.value === this.activeScope())?.label ?? 'Queue';
+  }
+
+  protected openCaseCount(): number {
+    return this.cases().filter((reviewCase) => reviewCase.status === 'open').length;
+  }
+
+  protected resolvedCaseCount(): number {
+    return this.cases().filter((reviewCase) => reviewCase.status !== 'open').length;
   }
 
   async changeScope(scope: CaseScope): Promise<void> {

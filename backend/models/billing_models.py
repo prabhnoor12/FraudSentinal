@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Integer,
     String,
     Text,
@@ -48,6 +49,18 @@ class BillingRecord(Base):
     """Stores billed transactions for usage that was consumed by a user."""
 
     __tablename__ = "billing_records"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["user_id", "organisation_id"],
+            ["users.id", "users.organisation_id"],
+            name="fk_billing_records_user_org",
+        ),
+        ForeignKeyConstraint(
+            ["usage_event_id", "organisation_id"],
+            ["usage_events.id", "usage_events.organisation_id"],
+            name="fk_billing_records_usage_event_org",
+        ),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)

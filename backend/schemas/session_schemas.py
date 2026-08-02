@@ -9,6 +9,7 @@ from schemas.api_schemas import PaginatedResponse
 class SessionCreate(BaseModel):
     user_id: int
     session_token: str
+    organisation_id: Optional[int] = None
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
     status: str = "active"
@@ -16,6 +17,7 @@ class SessionCreate(BaseModel):
 
 class SessionOut(SessionCreate):
     id: int
+    organisation_id: int
     started_at: datetime
     ended_at: Optional[datetime] = None
 

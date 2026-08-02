@@ -1,19 +1,15 @@
 from sqlalchemy.orm import Session
 
-from cruds import organisation_crud, usage_crud, user_crud
+from cruds import usage_crud
 from schemas.usage_schemas import UsageEventCreate, UsageSummaryCreate
 from services import entitlement_service
-from utils.exception_handling_utils import NotFoundError
+from utils.ownership_utils import require_user_in_organisation
 
 
 def _ensure_usage_owners_exist(
     db: Session, *, user_id: int, organisation_id: int
 ) -> None:
-    user = user_crud.get_user_by_id(db, user_id)
-    if not user or user.organisation_id != organisation_id:
-        raise NotFoundError("User not found")
-    if not organisation_crud.get_organisation_by_id(db, organisation_id):
-        raise NotFoundError("Organisation not found")
+    require_user_in_organisation(db, user_id=user_id, organisation_id=organisation_id)
 
 
 def create_usage_event_service(db: Session, payload: UsageEventCreate):

@@ -11,18 +11,51 @@ import { FIELD_NAMES, OPERATORS, REASON_CODES } from './fraud-rule-options';
   template: `
     <section class="fs-page">
       <div class="fs-page-header">
-        <a class="fs-back-link" routerLink="/fraud-rules">← Back to Fraud Rules</a>
+        <a class="fs-back-link" routerLink="/fraud-rules">Back to Fraud Rules</a>
         <h1>Edit Fraud Rule</h1>
-        <p class="fs-muted">Update rule behavior, thresholds, and activation state.</p>
+        <p class="fs-muted">Update rule behavior, threshold logic, and rollout state.</p>
       </div>
 
       <div class="fs-card">
         @if (loading()) {
-          <div class="fs-skeleton">Loading rule…</div>
+          <div class="fs-skeleton">Loading rule...</div>
         } @else if (error()) {
           <div class="fs-alert is-error">{{ error() }}</div>
         } @else {
-          <form class="fs-form" [formGroup]="form" (ngSubmit)="save()">
+          <div class="fs-detail-hero">
+            <div>
+              <span class="fs-eyebrow">Rule configuration</span>
+              <h2>{{ rule()?.name || 'Fraud rule' }}</h2>
+              <p class="fs-muted">
+                Edit matching logic, scoring, and rollout state for rule code {{ rule()?.rule_code }}.
+              </p>
+            </div>
+            <span class="fs-status-pill" [class.is-enabled]="form.controls.enabled.value">
+              {{ form.controls.enabled.value ? 'enabled' : 'disabled' }}
+            </span>
+          </div>
+
+          <div class="fs-rule-summary">
+            <div class="fs-summary-card">
+              <span class="fs-summary-label">Reason code</span>
+              <strong>{{ form.controls.reason_code.value }}</strong>
+            </div>
+            <div class="fs-summary-card">
+              <span class="fs-summary-label">Weight</span>
+              <strong>{{ form.controls.weight.value }}</strong>
+            </div>
+            <div class="fs-summary-card">
+              <span class="fs-summary-label">Priority</span>
+              <strong>{{ form.controls.priority.value }}</strong>
+            </div>
+          </div>
+
+          <form class="fs-form fs-edit-form" [formGroup]="form" (ngSubmit)="save()">
+            <div class="fs-card-header">
+              <h2>Rule Configuration</h2>
+              <p class="fs-muted">Adjust the logic, scoring weight, and activation state in one place.</p>
+            </div>
+
             <div class="fs-form-grid">
               <label class="fs-field">
                 <span>Name</span>
@@ -89,7 +122,7 @@ import { FIELD_NAMES, OPERATORS, REASON_CODES } from './fraud-rule-options';
 
             <div class="fs-form-actions">
               <button class="fs-button" type="submit" [disabled]="saving() || form.invalid">
-                @if (saving()) { Saving… } @else { Save changes }
+                @if (saving()) { Saving... } @else { Save changes }
               </button>
               <a class="fs-button is-secondary" routerLink="/fraud-rules">Cancel</a>
             </div>
@@ -98,6 +131,7 @@ import { FIELD_NAMES, OPERATORS, REASON_CODES } from './fraud-rule-options';
       </div>
     </section>
   `,
+  styleUrl: './fraud-rule-edit.page.scss',
 })
 export class FraudRuleEditPage {
   private readonly fb = new FormBuilder();
@@ -202,4 +236,3 @@ export class FraudRuleEditPage {
     return Number.isNaN(asNumber) ? trimmed : asNumber;
   }
 }
-
